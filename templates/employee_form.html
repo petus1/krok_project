@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{% if user %}Редактировать сотрудника{% else %}Создать сотрудника{% endif %}{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">{% if user %}Редактировать сотрудника{% else %}Создать сотрудника{% endif %}</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="POST">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="username" class="form-label">Логин (доменный вход):</label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               value="{{ user.username if user else '' }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="password" class="form-label">Пароль (доменный вход):</label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               {% if not user %}required{% endif %}>
+                        {% if user %}
+                            <small class="form-text text-muted">Оставьте пустым, чтобы не менять пароль</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="full_name" class="form-label">ФИО:</label>
+                        <input type="text" class="form-control" id="full_name" name="full_name"
+                               value="{{ user.full_name if user else '' }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="email" class="form-label">Email:</label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               value="{{ user.email if user else '' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="role" class="form-label">Роль:</label>
+                        <select class="form-select" id="role" name="role" required>
+                            <option value="">Выберите роль</option>
+                            {% for role in roles %}
+                                <option value="{{ role }}" {% if user and user.role == role %}selected{% endif %}>
+                                    {% if role == 'A' %}Администратор
+                                    {% elif role == 'B' %}Безопасность
+                                    {% elif role == 'BU' %}Бухгалтерия
+                                    {% elif role == 'GR' %}Главный руководитель
+                                    {% elif role == 'R' %}Руководитель
+                                    {% elif role == 'S' %}Сотрудник
+                                    {% elif role == 'K' %}Кадры
+                                    {% elif role == 'TK' %}Travel-координатор
+                                    {% elif role == 'Z' %}Закупки
+                                    {% else %}{{ role }}{% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="manager_id" class="form-label">Руководитель:</label>
+                        <select class="form-select" id="manager_id" name="manager_id">
+                            <option value="">Не указан</option>
+                            {% for manager in managers %}
+                                <option value="{{ manager.id }}"
+                                        {% if user and user.manager_id == manager.id %}selected{% endif %}>
+                                    {{ manager.full_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="department" class="form-label">Подразделение:</label>
+                        <input type="text" class="form-control" id="department" name="department"
+                               value="{{ user.department if user else '' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="passport_data" class="form-label">Паспортные данные:</label>
+                        <textarea class="form-control" id="passport_data" name="passport_data"
+                                  rows="3">{{ user.passport_data if user else '' }}</textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">{% if user %}Сохранить{% else %}
+                    Создать{% endif %}</button>
+                <a href="{{ url_for('employees') }}" class="btn btn-secondary">Отмена</a>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+

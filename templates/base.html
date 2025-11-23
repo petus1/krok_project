@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Система командировок{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            min-height: calc(100vh - 56px);
+            background-color: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+        }
+
+        .role-badge {
+            font-size: 0.7em;
+            vertical-align: middle;
+        }
+
+        .main-content {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+<!-- Верхняя навигация -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('dashboard') }}">Система командировок</a>
+
+        {% if session.user_id %}
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3">
+                    {{ session.full_name }} <span class="badge bg-secondary role-badge">
+                        {% if session.role == 'A' %}Администратор
+                        {% elif session.role == 'B' %}Безопасность
+                        {% elif session.role == 'BU' %}Бухгалтерия
+                        {% elif session.role == 'GR' %}Главный руководитель
+                        {% elif session.role == 'R' %}Руководитель
+                        {% elif session.role == 'S' %}Сотрудник
+                        {% elif session.role == 'K' %}Кадры
+                        {% elif session.role == 'TK' %}Travel-координатор
+                        {% elif session.role == 'Z' %}Закупки
+                        {% else %}{{ session.role }}{% endif %}
+                    </span>
+                </span>
+                <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Выйти</a>
+            </div>
+        {% endif %}
+    </div>
+</nav>
+
+<div class="container-fluid">
+    <div class="row">
+        {% if session.user_id %}
+            <!-- Боковая панель -->
+            <div class="col-md-2 sidebar p-3">
+                <div class="list-group">
+                    <a href="{{ url_for('dashboard') }}"
+                       class="list-group-item list-group-item-action {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                        Дашборд
+                    </a>
+
+                    <a href="{{ url_for('trips') }}"
+                       class="list-group-item list-group-item-action {% if request.endpoint == 'trips' %}active{% endif %}">
+                        Заявки на командировки
+                    </a>
+
+                    <!-- Создание заявки доступно: А, ГР, Р, С -->
+                    {% if session.role in ['A', 'GR', 'R', 'S'] %}
+                        <a href="{{ url_for('create_trip') }}"
+                           class="list-group-item list-group-item-action {% if request.endpoint == 'create_trip' %}active{% endif %}">
+                            Создать заявку
+                        </a>
+                    {% endif %}
+
+                    <!-- Отчеты доступны: А, Б, БУ, ГР, Р, С, ТК, З -->
+                    {% if session.role in ['A', 'B', 'BU', 'GR', 'R', 'S', 'TK', 'Z'] %}
+                        <a href="{{ url_for('reports') }}"
+                           class="list-group-item list-group-item-action {% if request.endpoint == 'reports' %}active{% endif %}">
+                            Отчеты и аналитика
+                        </a>
+                    {% endif %}
+
+                    <!-- Планирование доступно: А, Б, БУ, ГР, Р, С -->
+                    {% if session.role in ['A', 'B', 'BU', 'GR', 'R', 'S'] %}
+                        <a href="{{ url_for('planning') }}"
+                           class="list-group-item list-group-item-action {% if request.endpoint == 'planning' %}active{% endif %}">
+                            План и бюджет
+                        </a>
+                    {% endif %}
+
+                    <!-- Сотрудники доступны только: А, Б -->
+                    {% if session.role in ['A', 'B'] %}
+                        <a href="{{ url_for('employees') }}"
+                           class="list-group-item list-group-item-action {% if request.endpoint == 'employees' %}active{% endif %}">
+                            Сотрудники
+                        </a>
+                    {% endif %}
+
+                    <!-- Дополнительные пункты для разных ролей -->
+                    {% if session.role in ['A', 'TK'] %}
+                        <a href="#" class="list-group-item list-group-item-action">
+                            Бронирование
+                        </a>
+                    {% endif %}
+
+                    {% if session.role in ['A', 'Z'] %}
+                        <a href="#" class="list-group-item list-group-item-action">
+                            Закупки
+                        </a>
+                    {% endif %}
+
+                    {% if session.role in ['A', 'K'] %}
+                        <a href="#" class="list-group-item list-group-item-action">
+                            Кадровые данные
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Основной контент -->
+        <div class="{% if session.user_id %}col-md-10 main-content{% else %}col-12{% endif %}">
+            <div class="container mt-4">
+                <!-- Сообщения flash -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-
+
+
+
+                                    {{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

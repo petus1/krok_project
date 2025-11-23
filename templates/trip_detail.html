@@ -1,0 +1,671 @@
+{% extends "base.html" %}
+
+{% block title %}Заявка {{ trip.trip_number }}{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Заявка {{ trip.trip_number }}</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <span class="badge bg-{% if trip.status == 'Согласована' %}success{% elif trip.status == 'Ожидают согласования' %}warning{% elif trip.status == 'Отменена' %}danger{% else %}secondary{% endif %} fs-6">
+                {{ trip.status }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Общая информация (верхняя панель) -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Номер заявки:</strong><br>{{ trip.trip_number }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Дата создания:</strong><br>{{ trip.created_date.strftime('%d.%m.%Y %H:%M') }}
+                </div>
+                <div class="col-md-6">
+                    <strong>Статусы:</strong><br>
+                    <span class="badge {% if trip.is_activated %}bg-primary{% else %}bg-secondary{% endif %} me-1">
+                        {% if trip.is_activated %}Активированная{% else %}Планируемая{% endif %}
+                    </span>
+                    <span class="badge {% if trip.status == 'Согласована' %}bg-success{% elif trip.status == 'Ожидают согласования' %}bg-warning{% else %}bg-secondary{% endif %} me-1">
+                        {% if trip.status == 'Согласована' %}Согласована{% elif trip.status == 'Ожидают согласования' %}
+                            Ожидает согласования{% else %}{{ trip.status }}{% endif %}
+                    </span>
+                    {% if trip.over_limit %}
+                        <span class="badge {% if trip.overrun_approved %}bg-success{% else %}bg-warning{% endif %} me-1">
+                            {% if trip.overrun_approved %}Перерасход согласован{% else %}Ожидает согласования на
+                                перерасход{% endif %}
+                        </span>
+                    {% endif %}
+                    {% if trip.booking_completed %}
+                        <span class="badge bg-success me-1">Бронирование выполнено</span>
+                    {% elif trip.is_activated %}
+                        <span class="badge bg-warning me-1">Ожидает бронь</span>
+                    {% endif %}
+                    {% if trip.procurement_needed %}
+                        <span class="badge {% if trip.procurement_done %}bg-success{% else %}bg-warning{% endif %} me-1">
+                            {% if trip.procurement_done %}Закупка выполнена{% else %}Ожидают закупки{% endif %}
+                        </span>
+                    {% endif %}
+                    {% if trip.geo_location %}
+                        <span class="badge bg-info me-1">Геопозиция установлена</span>
+                    {% endif %}
+                    {% if trip.report_prepared %}
+                        <span class="badge bg-info me-1">Отчет подготовлен</span>
+                    {% endif %}
+                    {% if trip.report_reviewed %}
+                        <span class="badge bg-success me-1">Отчет проверен</span>
+                    {% endif %}
+                    {% if trip.trip_closed %}
+                        <span class="badge bg-dark me-1">Командировка закрыта</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Вкладки -->
+    <ul class="nav nav-tabs" id="tripTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="main-tab" data-bs-toggle="tab" data-bs-target="#main" type="button"
+                    role="tab">
+                Основное
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="booking-tab" data-bs-toggle="tab" data-bs-target="#booking" type="button"
+                    role="tab">
+                Бронирование
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="procurement-tab" data-bs-toggle="tab" data-bs-target="#procurement"
+                    type="button" role="tab">
+                Закупка материалов
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="report-tab" data-bs-toggle="tab" data-bs-target="#report" type="button"
+                    role="tab">
+                Отчёт сотрудника
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="tripTabsContent">
+        <!-- Вкладка "Основное" -->
+        <div class="tab-pane fade show active" id="main" role="tabpanel">
+            <div class="row mt-3">
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Информация о сотруднике и подразделении</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Сотрудник:</strong> {{ trip.employee.full_name }}</p>
+                                    <p><strong>Руководитель:</strong>
+                                        {% if trip.manager_rel %}{{ trip.manager_rel.full_name }}{% else %}Не
+                                            указан{% endif %}</p>
+                                    <p><strong>Подразделение:</strong> {{ trip.department or 'Не указано' }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Дата создания:</strong> {{ trip.created_date.strftime('%d.%m.%Y') }}</p>
+                                    <p><strong>Период:</strong>
+                                        {% if trip.start_date %}
+                                            {{ trip.start_date.strftime('%d.%m.%Y') }} -
+                                            {{ trip.end_date.strftime('%d.%m.%Y') }}
+                                        {% endif %}
+                                    </p>
+                                    <p><strong>Длительность:</strong>
+                                        {% if trip.duration %}{{ trip.duration }} дней{% else %}Не указана{% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Детали поездки</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Место назначения:</strong> {{ trip.destination or 'Не указано' }}</p>
+                            <p><strong>Цель поездки:</strong> {{ trip.purpose or 'Не указана' }}</p>
+                            <p><strong>Формат проведения:</strong> {{ trip.trip_format or 'Не указан' }}</p>
+                            <p><strong>Номер проекта:</strong> {{ trip.project_number or 'Не указан' }}</p>
+                            <p><strong>Регулярность:</strong> {{ trip.regularity or 'Не указана' }}</p>
+                            <p><strong>Принимающая сторона:</strong> {{ trip.receiving_party or 'Не указана' }}</p>
+                            {% if trip.cancellation_reason %}
+                                <p><strong>Причина отмены/несогласования:</strong>
+                                    <span class="text-danger">{{ trip.cancellation_reason }}</span>
+                                </p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Расходы</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Предполагаемые расходы:</strong> {{ "%.2f"|format(trip.estimated_costs or 0) }}
+                                руб.</p>
+                            <p><strong>Детализация:</strong> {{ trip.cost_details or 'Не указана' }}</p>
+                            <p><strong>Превышение лимита:</strong>
+                                <span class="badge {% if trip.over_limit %}bg-danger{% else %}bg-success{% endif %}">
+                                    {{ 'Да' if trip.over_limit else 'Нет' }}
+                                </span>
+                            </p>
+                            {% if trip.actual_costs %}
+                                <p><strong>Фактические расходы:</strong> {{ "%.2f"|format(trip.actual_costs) }} руб.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Действия</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if user.role in ['A', 'GR', 'R'] or (user.role == 'S' and trip.employee_id == user.id) %}
+                                <div class="d-grid gap-2">
+                                    {% if not trip.is_activated %}
+                                        <button class="btn btn-success" onclick="activateTrip({{ trip.id }})">
+                                            Активировать командировку
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-warning" onclick="deactivateTrip({{ trip.id }})">
+                                            Отменить активацию
+                                        </button>
+                                    {% endif %}
+
+                                    {% if trip.is_activated and trip.status == 'Планируемая' %}
+                                        <button class="btn btn-primary" onclick="sendForApproval({{ trip.id }})">
+                                            На согласование
+                                        </button>
+                                    {% endif %}
+
+                                    {% if user.role in ['R', 'GR'] and trip.status == 'Ожидают согласования' %}
+                                        <button class="btn btn-success" onclick="approveTrip({{ trip.id }})">
+                                            Согласовать
+                                        </button>
+                                        <button class="btn btn-danger" onclick="rejectTrip({{ trip.id }})">
+                                            Не согласовать
+                                        </button>
+                                    {% endif %}
+
+                                    {% if trip.over_limit and not trip.overrun_approved and user.role in ['R', 'GR'] %}
+                                        <button class="btn btn-warning" onclick="approveOverrun({{ trip.id }})">
+                                            Согласовать перерасход
+                                        </button>
+                                    {% endif %}
+
+                                    <button class="btn btn-danger" onclick="cancelTrip({{ trip.id }})">
+                                        Отменить командировку
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5>Статусы</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <span class="badge {% if trip.report_prepared %}bg-success{% else %}bg-secondary{% endif %}">
+                                    Отчет подготовлен: {{ 'Да' if trip.report_prepared else 'Нет' }}
+                                </span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="badge {% if trip.report_reviewed %}bg-success{% else %}bg-secondary{% endif %}">
+                                    Отчет проверен: {{ 'Да' if trip.report_reviewed else 'Нет' }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="badge {% if trip.trip_closed %}bg-success{% else %}bg-secondary{% endif %}">
+                                    Командировка закрыта: {{ 'Да' if trip.trip_closed else 'Нет' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка "Бронирование" -->
+        <div class="tab-pane fade" id="booking" role="tabpanel">
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5>Бронирование</h5>
+                            {% if user.role in ['A', 'TK'] %}
+                                <div>
+                                    {% if trip.booking_overrun_approved == False and trip.over_limit %}
+                                        <button class="btn btn-sm btn-warning"
+                                                onclick="approveBookingOverrun({{ trip.id }})">
+                                            Согласовать перерасход
+                                        </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-success" onclick="completeBooking({{ trip.id }})">
+                                        Бронирование выполнено
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <h6>Транспорт к месту назначения</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <p><strong>Тип транспорта:</strong> {{ trip.transport_type or 'Не указан' }}</p>
+                                    <p><strong>Убытие из:</strong> {{ trip.departure_city or 'Не указано' }}</p>
+                                    <p><strong>Прибытие в:</strong> {{ trip.arrival_city or 'Не указано' }}</p>
+                                    {% if trip.departure_date_min %}
+                                        <p><strong>Не
+                                            раньше:</strong> {{ trip.departure_date_min.strftime('%d.%m.%Y %H:%M') }}
+                                        </p>
+                                    {% endif %}
+                                    {% if trip.arrival_date_max %}
+                                        <p><strong>Не
+                                            позже:</strong> {{ trip.arrival_date_max.strftime('%d.%m.%Y %H:%M') }}</p>
+                                    {% endif %}
+                                    <p><strong>Трансфер до:</strong> {{ trip.transfer_to or 'Не указан' }}</p>
+                                </div>
+                            </div>
+
+                            <h6>Транспорт обратно</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <p><strong>Тип транспорта:</strong> {{ trip.transport_type_return or 'Не указан' }}
+                                    </p>
+                                    <p><strong>Убытие из:</strong> {{ trip.departure_city_return or 'Не указано' }}</p>
+                                    <p><strong>Прибытие в:</strong> {{ trip.arrival_city_return or 'Не указано' }}</p>
+                                    {% if trip.departure_date_min_return %}
+                                        <p><strong>Не
+                                            раньше:</strong> {{ trip.departure_date_min_return.strftime('%d.%m.%Y %H:%M') }}
+                                        </p>
+                                    {% endif %}
+                                    {% if trip.arrival_date_max_return %}
+                                        <p><strong>Не
+                                            позже:</strong> {{ trip.arrival_date_max_return.strftime('%d.%m.%Y %H:%M') }}
+                                        </p>
+                                    {% endif %}
+                                    <p><strong>Трансфер до:</strong> {{ trip.transfer_from or 'Не указан' }}</p>
+                                </div>
+                            </div>
+
+                            <h6>Проживание</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <p><strong>Отель:</strong> {{ trip.hotel_name or 'Не указан' }}</p>
+                                    {% if trip.check_in %}
+                                        <p><strong>Заезд:</strong> {{ trip.check_in.strftime('%d.%m.%Y') }}</p>
+                                    {% endif %}
+                                    {% if trip.check_out %}
+                                        <p><strong>Выезд:</strong> {{ trip.check_out.strftime('%d.%m.%Y') }}</p>
+                                    {% endif %}
+                                    <p><strong>Количество мест:</strong> {{ trip.hotel_rooms or 'Не указано' }}</p>
+                                </div>
+                            </div>
+
+                            <h6>Контакты</h6>
+                            <p><strong>Телефон:</strong> {{ trip.contact_phone or 'Не указан' }}</p>
+
+                            {% if trip.booking_notes %}
+                                <h6>Дополнительная информация</h6>
+                                <p>{{ trip.booking_notes }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка "Закупка материалов" -->
+        <div class="tab-pane fade" id="procurement" role="tabpanel">
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5>Закупка материалов</h5>
+                            {% if user.role in ['A', 'Z'] %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="procurementNeeded"
+                                           {% if trip.procurement_needed %}checked{% endif %}
+                                           onchange="toggleProcurement({{ trip.id }}, this.checked)">
+                                    <label class="form-check-label" for="procurementNeeded">
+                                        Нужна закупка
+                                    </label>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            {% if trip.procurement_needed %}
+                                <div class="mb-3">
+                                    <p><strong>Предполагаемые
+                                        расходы:</strong> {{ "%.2f"|format(trip.procurement_costs or 0) }} руб.</p>
+                                    <p><strong>Детализация
+                                        задания:</strong> {{ trip.procurement_details or 'Не указана' }}</p>
+                                    <p><strong>Отчет по
+                                        закупке:</strong> {{ trip.procurement_report or 'Не предоставлен' }}</p>
+                                </div>
+                                {% if user.role in ['A', 'Z'] %}
+                                    <div class="form-check mb-3">
+                                        <input class="form-check-input" type="checkbox" id="procurementDone"
+                                               {% if trip.procurement_done %}checked{% endif %}
+                                               onchange="toggleProcurementDone({{ trip.id }}, this.checked)">
+                                        <label class="form-check-label" for="procurementDone">
+                                            Закупка выполнена
+                                        </label>
+                                    </div>
+                                {% endif %}
+                            {% else %}
+                                <p>Закупка материалов не требуется</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Вкладка "Отчёт сотрудника" -->
+        <div class="tab-pane fade" id="report" role="tabpanel">
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5>Отчёт сотрудника</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <h6>Геолокация</h6>
+                                {% if trip.geo_location %}
+                                    <p><strong>Геопозиция установлена:</strong> {{ trip.geo_location }}</p>
+                                    {% if trip.geo_location_date %}
+                                        <p><strong>Дата
+                                            установки:</strong> {{ trip.geo_location_date.strftime('%d.%m.%Y %H:%M') }}
+                                        </p>
+                                    {% endif %}
+                                {% elif user.role == 'S' and trip.employee_id == user.id %}
+                                    <button class="btn btn-primary" onclick="setGeoLocation({{ trip.id }})">
+                                        Фиксировать геопозицию
+                                    </button>
+                                {% else %}
+                                    <p>Геопозиция не установлена</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <h6>Расходы</h6>
+                                {% if trip.geo_location or user.role in ['A', 'R', 'GR', 'BU'] %}
+                                    <p><strong>Фактические расходы:</strong> {{ "%.2f"|format(trip.actual_costs or 0) }}
+                                        руб.</p>
+                                    {% if trip.over_limit and not trip.report_overrun_approved and user.role in ['R', 'GR'] %}
+                                        <button class="btn btn-sm btn-warning"
+                                                onclick="approveReportOverrun({{ trip.id }})">
+                                            Согласовать перерасход
+                                        </button>
+                                    {% endif %}
+                                {% else %}
+                                    <p>Доступ к заполнению расходов открывается после установки геолокации</p>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <h6>Статусы отчета</h6>
+                                {% if user.role == 'S' and trip.employee_id == user.id %}
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="reportPrepared"
+                                               {% if trip.report_prepared %}checked{% endif %}
+                                               onchange="toggleReportPrepared({{ trip.id }}, this.checked)">
+                                        <label class="form-check-label" for="reportPrepared">
+                                            Отчёт подготовлен
+                                        </label>
+                                    </div>
+                                {% endif %}
+
+                                {% if user.role in ['R', 'GR'] %}
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="reportReviewed"
+                                               {% if trip.report_reviewed %}checked{% endif %}
+                                               onchange="toggleReportReviewed({{ trip.id }}, this.checked)">
+                                        <label class="form-check-label" for="reportReviewed">
+                                            Отчёт проверен
+                                        </label>
+                                    </div>
+                                {% endif %}
+
+                                {% if user.role in ['A', 'BU'] %}
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="tripClosed"
+                                               {% if trip.trip_closed %}checked{% endif %}
+                                               onchange="toggleTripClosed({{ trip.id }}, this.checked)">
+                                        <label class="form-check-label" for="tripClosed">
+                                            Командировка закрыта
+                                        </label>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <h6>Документы</h6>
+                                <p>Функционал прикрепления документов будет реализован в следующей версии</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        function updateStatus(tripId, status) {
+            if (confirm('Вы уверены, что хотите изменить статус?')) {
+                fetch(`/api/update_trip_status/${tripId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({status: status})
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                        }
+                    });
+            }
+        }
+
+        function activateTrip(tripId) {
+            fetch(`/api/trip/${tripId}/activate`, {method: 'POST'})
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function deactivateTrip(tripId) {
+            fetch(`/api/trip/${tripId}/deactivate`, {method: 'POST'})
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function sendForApproval(tripId) {
+            fetch(`/api/trip/${tripId}/send_for_approval`, {method: 'POST'})
+                .then(r => r.json()).then(d => {
+                if (d.success) {
+                    location.reload();
+                } else {
+                    alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
+                }
+            });
+        }
+
+        function approveTrip(tripId) {
+            updateStatus(tripId, 'Согласована');
+        }
+
+        function rejectTrip(tripId) {
+            const reasons = [
+                'Превышение бюджета',
+                'Несоответствие целям командировки',
+                'Некорректные даты',
+                'Отсутствие необходимости',
+                'Другая причина'
+            ];
+            const reasonSelect = reasons.map((r, i) => `${i + 1}. ${r}`).join('\n');
+            const selected = prompt('Выберите причину несогласования:\n' + reasonSelect + '\n\nВведите номер:');
+            if (selected) {
+                const reasonIndex = parseInt(selected) - 1;
+                const reason = reasonIndex >= 0 && reasonIndex < reasons.length ? reasons[reasonIndex] : selected;
+                fetch(`/api/trip/${tripId}/reject`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({reason: reason})
+                })
+                    .then(r => r.json()).then(d => {
+                    if (d.success) location.reload();
+                    else alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
+                });
+            }
+        }
+
+        function cancelTrip(tripId) {
+            const reasons = [
+                'Изменение планов',
+                'Отмена мероприятия',
+                'Болезнь сотрудника',
+                'Отсутствие финансирования',
+                'Другая причина'
+            ];
+            const reasonSelect = reasons.map((r, i) => `${i + 1}. ${r}`).join('\n');
+            const selected = prompt('Выберите причину отмены:\n' + reasonSelect + '\n\nВведите номер:');
+            if (selected) {
+                const reasonIndex = parseInt(selected) - 1;
+                const reason = reasonIndex >= 0 && reasonIndex < reasons.length ? reasons[reasonIndex] : selected;
+                fetch(`/api/trip/${tripId}/cancel`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({reason: reason})
+                })
+                    .then(r => r.json()).then(d => {
+                    if (d.success) location.reload();
+                    else alert('Ошибка: ' + (d.error || 'Неизвестная ошибка'));
+                });
+            }
+        }
+
+        function approveOverrun(tripId) {
+            fetch(`/api/trip/${tripId}/approve_overrun`, {method: 'POST'})
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function approveBookingOverrun(tripId) {
+            fetch(`/api/trip/${tripId}/approve_booking_overrun`, {method: 'POST'})
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function completeBooking(tripId) {
+            fetch(`/api/trip/${tripId}/complete_booking`, {method: 'POST'})
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function toggleProcurement(tripId, needed) {
+            fetch(`/api/trip/${tripId}/procurement`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({needed: needed})
+            })
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function toggleProcurementDone(tripId, done) {
+            fetch(`/api/trip/${tripId}/procurement_done`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({done: done})
+            })
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function setGeoLocation(tripId) {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    const location = position.coords.latitude + ', ' + position.coords.longitude;
+                    fetch(`/api/trip/${tripId}/geo_location`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({location: location})
+                    })
+                        .then(r => r.json()).then(d => {
+                        if (d.success) {
+                            alert('Геопозиция установлена');
+                            location.reload();
+                        }
+                    });
+                });
+            } else {
+                alert('Геолокация не поддерживается вашим браузером');
+            }
+        }
+
+        function approveReportOverrun(tripId) {
+            fetch(`/api/trip/${tripId}/approve_report_overrun`, {method: 'POST'})
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function toggleReportPrepared(tripId, prepared) {
+            fetch(`/api/trip/${tripId}/report_prepared`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({prepared: prepared})
+            })
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function toggleReportReviewed(tripId, reviewed) {
+            fetch(`/api/trip/${tripId}/report_reviewed`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({reviewed: reviewed})
+            })
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+
+        function toggleTripClosed(tripId, closed) {
+            fetch(`/api/trip/${tripId}/trip_closed`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({closed: closed})
+            })
+                .then(r => r.json()).then(d => {
+                if (d.success) location.reload();
+            });
+        }
+    </script>
+{% endblock %}

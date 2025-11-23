@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Дашборд{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Дашборд</h1>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Добро пожаловать, {{ user.full_name }}!</h5>
+                    <p class="card-text">Ваша роль: <strong>
+                        {% if user.role == 'A' %}Администратор
+                        {% elif user.role == 'B' %}Безопасность
+                        {% elif user.role == 'BU' %}Бухгалтерия
+                        {% elif user.role == 'GR' %}Главный руководитель
+                        {% elif user.role == 'R' %}Руководитель
+                        {% elif user.role == 'S' %}Сотрудник
+                        {% elif user.role == 'K' %}Кадры
+                        {% elif user.role == 'TK' %}Travel-координатор
+                        {% elif user.role == 'Z' %}Закупки
+                        {% else %}{{ user.role }}{% endif %}
+                    </strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Инфографика по статусам -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Статистика по заявкам</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% set planned = trips|selectattr('status', 'equalto', 'Планируемая')|list|length %}
+                        {% set activated = trips|selectattr('is_activated', 'equalto', True)|list|length %}
+                        {% set waiting_approval = trips|selectattr('status', 'equalto', 'Ожидают согласования')|list|length %}
+                        {% set approved = trips|selectattr('status', 'equalto', 'Согласована')|list|length %}
+                        {% set waiting_overrun = trips|selectattr('over_limit', 'equalto', True)|selectattr('overrun_approved', 'equalto', False)|list|length %}
+                        {% set overrun_approved = trips|selectattr('overrun_approved', 'equalto', True)|list|length %}
+                        {% set waiting_booking = trips|selectattr('is_activated', 'equalto', True)|selectattr('booking_completed', 'equalto', False)|list|length %}
+                        {% set booking_completed = trips|selectattr('booking_completed', 'equalto', True)|list|length %}
+                        {% set waiting_procurement = trips|selectattr('procurement_needed', 'equalto', True)|selectattr('procurement_done', 'equalto', False)|list|length %}
+                        {% set procurement_done = trips|selectattr('procurement_done', 'equalto', True)|list|length %}
+                        {% set geo_set = trips|selectattr('geo_location', 'ne', None)|list|length %}
+                        {% set report_prepared = trips|selectattr('report_prepared', 'equalto', True)|list|length %}
+                        {% set report_reviewed = trips|selectattr('report_reviewed', 'equalto', True)|list|length %}
+                        {% set closed = trips|selectattr('trip_closed', 'equalto', True)|list|length %}
+
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-secondary text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ planned }}</h3>
+                                    <p class="mb-0">Планируемые</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ activated }}</h3>
+                                    <p class="mb-0">Активированные</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h3>{{ waiting_approval }}</h3>
+                                    <p class="mb-0">Ожидают согласования</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ approved }}</h3>
+                                    <p class="mb-0">Согласованы</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h3>{{ waiting_overrun }}</h3>
+                                    <p class="mb-0">Ожидают согласования на перерасход</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ overrun_approved }}</h3>
+                                    <p class="mb-0">Перерасход согласован</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h3>{{ waiting_booking }}</h3>
+                                    <p class="mb-0">Ожидают бронь</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ booking_completed }}</h3>
+                                    <p class="mb-0">Бронирование выполнено</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-warning text-dark">
+                                <div class="card-body text-center">
+                                    <h3>{{ waiting_procurement }}</h3>
+                                    <p class="mb-0">Ожидают закупки</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ procurement_done }}</h3>
+                                    <p class="mb-0">Закупка выполнена</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ geo_set }}</h3>
+                                    <p class="mb-0">Геопозиция установлена</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ report_prepared }}</h3>
+                                    <p class="mb-0">Отчет подготовлен</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ report_reviewed }}</h3>
+                                    <p class="mb-0">Отчет проверен</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-dark text-white">
+                                <div class="card-body text-center">
+                                    <h3>{{ closed }}</h3>
+                                    <p class="mb-0">Командировка закрыта</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Заявки с просрочками -->
+    {% if user.role == 'A' %}
+        {% set overdue_trips = [] %}
+        {% for trip in trips %}
+            {% if trip.status == 'Ожидают согласования' and trip.approval_request_date %}
+                {% set time_diff = (now - trip.approval_request_date).total_seconds() %}
+                {% set days_passed = (time_diff / 86400)|int %}
+                {% if days_passed > 1 %}
+                    {% set _ = overdue_trips.append(trip) %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+
+        {% if overdue_trips %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <h5>⚠️ Просроченные согласования (более 1 рабочего дня)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                    <tr>
+                                        <th>Номер заявки</th>
+                                        <th>Сотрудник</th>
+                                        <th>Руководитель</th>
+                                        <th>Дата запроса</th>
+                                        <th>Дней просрочки</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for trip in overdue_trips %}
+                                        <tr class="table-danger">
+                                            <td>{{ trip.trip_number }}</td>
+                                            <td>{{ trip.employee.full_name }}</td>
+                                            <td>{% if trip.manager_rel %}{{ trip.manager_rel.full_name }}{% else %}Не
+                                                указан{% endif %}</td>
+                                            <td>{{ trip.approval_request_date.strftime('%d.%m.%Y') if trip.approval_request_date else 'Не указана' }}</td>
+                                            <td>
+                                                {% if trip.approval_request_date %}
+                                                    {% set time_diff = (now - trip.approval_request_date).total_seconds() %}
+                                                    {% set days = (time_diff / 86400)|int %}
+                                                    {{ days }}
+                                                {% else %}
+                                                    0
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('trip_detail', trip_id=trip.id) }}"
+                                                   class="btn btn-sm btn-primary">Просмотр</a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <!-- Последние заявки -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Последние заявки</h5>
+                </div>
+                <div class="card-body">
+                    {% if trips %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                <tr>
+                                    <th>Номер заявки</th>
+                                    <th>Сотрудник</th>
+                                    <th>Направление</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for trip in trips[:10] %}
+                                    <tr>
+                                        <td>{{ trip.trip_number }}</td>
+                                        <td>{{ trip.employee.full_name }}</td>
+                                        <td>{{ trip.destination or 'Не указано' }}</td>
+                                        <td>
+                                                <span class="badge bg-{% if trip.status == 'Согласована' %}success{% elif trip.status == 'Ожидают согласования' %}warning{% elif trip.status == 'Отменена' %}danger{% else %}secondary{% endif %}">
+                                                    {{ trip.status }}
+                                                </span>
+                                        </td>
+                                        <td>
+                                            <a href="{{ url_for('trip_detail', trip_id=trip.id) }}"
+                                               class="btn btn-sm btn-outline-primary">Просмотр</a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p>У вас нет заявок на командировки</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

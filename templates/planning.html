@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}План и бюджет командировок{% endblock %}
+
+{% block content %}
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">План и бюджет командировок</h1>
+        <a href="{{ url_for('create_trip') }}" class="btn btn-primary">Запланировать командировку</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5>Запланированные командировки</h5>
+            {% if trips %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                        <tr>
+                            <th>Номер</th>
+                            <th>Сотрудник</th>
+                            <th>Направление</th>
+                            <th>Даты</th>
+                            <th>Бюджет</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for trip in trips %}
+                            <tr>
+                                <td>{{ trip.trip_number }}</td>
+                                <td>{{ trip.employee.full_name }}</td>
+                                <td>{{ trip.destination }}</td>
+                                <td>
+                                    {% if trip.start_date %}
+                                        {{ trip.start_date.strftime('%d.%m.%Y') }} -
+                                        {{ trip.end_date.strftime('%d.%m.%Y') }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.2f"|format(trip.estimated_costs or 0) }} руб.</td>
+                                <td>
+                                <span class="badge bg-{% if trip.status == 'Планируемая' %}secondary{% else %}primary{% endif %}">
+                                    {{ trip.status }}
+                                </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('trip_detail', trip_id=trip.id) }}"
+                                       class="btn btn-sm btn-outline-primary">Просмотр</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Нет запланированных командировок</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
