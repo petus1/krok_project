@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here-change-this-in-production'
+app.config['SECRET_KEY'] = 'your-secret-key-here'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///business_trips.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
