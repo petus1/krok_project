@@ -54,112 +54,112 @@
                         {% set closed = trips|selectattr('trip_closed', 'equalto', True)|list|length %}
 
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-secondary text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #78dade;">
                                     <h3>{{ planned }}</h3>
                                     <p class="mb-0">Планируемые</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-primary text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #33b8c7;">
                                     <h3>{{ activated }}</h3>
                                     <p class="mb-0">Активированные</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-warning text-dark">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #de2d5b;">
                                     <h3>{{ waiting_approval }}</h3>
                                     <p class="mb-0">Ожидают согласования</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #f06e9a;">
                                     <h3>{{ approved }}</h3>
                                     <p class="mb-0">Согласованы</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-warning text-dark">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #d85137;">
                                     <h3>{{ waiting_overrun }}</h3>
                                     <p class="mb-0">Ожидают согласования на перерасход</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #e8664c;">
                                     <h3>{{ overrun_approved }}</h3>
                                     <p class="mb-0">Перерасход согласован</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-warning text-dark">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #e1ad3e;">
                                     <h3>{{ waiting_booking }}</h3>
                                     <p class="mb-0">Ожидают бронь</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #edbd4f;">
                                     <h3>{{ booking_completed }}</h3>
                                     <p class="mb-0">Бронирование выполнено</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-warning text-dark">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #8b71c9;">
                                     <h3>{{ waiting_procurement }}</h3>
                                     <p class="mb-0">Ожидают закупки</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #9f87db;">
                                     <h3>{{ procurement_done }}</h3>
                                     <p class="mb-0">Закупка выполнена</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-info text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #5c80e6;">
                                     <h3>{{ geo_set }}</h3>
                                     <p class="mb-0">Геопозиция установлена</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-info text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #32ad8e;">
                                     <h3>{{ report_prepared }}</h3>
                                     <p class="mb-0">Отчет подготовлен</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #40c0a1;">
                                     <h3>{{ report_reviewed }}</h3>
                                     <p class="mb-0">Отчет проверен</p>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-3 mb-3">
-                            <div class="card bg-dark text-white">
-                                <div class="card-body text-center">
+                            <div class="card text-white">
+                                <div class="card-body text-center" style="background-color: #94c460;">
                                     <h3>{{ closed }}</h3>
                                     <p class="mb-0">Командировка закрыта</p>
                                 </div>

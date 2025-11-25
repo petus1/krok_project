@@ -24,9 +24,6 @@
                 </div>
                 <div class="col-md-6">
                     <strong>Статусы:</strong><br>
-                    <span class="badge {% if trip.is_activated %}bg-primary{% else %}bg-secondary{% endif %} me-1">
-                        {% if trip.is_activated %}Активированная{% else %}Планируемая{% endif %}
-                    </span>
                     <span class="badge {% if trip.status == 'Согласована' %}bg-success{% elif trip.status == 'Ожидают согласования' %}bg-warning{% else %}bg-secondary{% endif %} me-1">
                         {% if trip.status == 'Согласована' %}Согласована{% elif trip.status == 'Ожидают согласования' %}
                             Ожидает согласования{% else %}{{ trip.status }}{% endif %}

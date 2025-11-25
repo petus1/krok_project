@@ -78,7 +78,9 @@
                     <h5>Распределение по статусам</h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="statusChart" height="200"></canvas>
+                    <div class="chart-container">
+                        <canvas id="statusChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -212,96 +214,131 @@
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script>
+        // Функция для безопасного получения данных
+        function safeGetData(data, defaultValue = {}) {
+            return data && Object.keys(data).length > 0 ? data : defaultValue;
+        }
+
         // График по статусам
-        const statusCtx = document.getElementById('statusChart').getContext('2d');
-        const statusData = {{ status_counts|tojson }};
-        new Chart(statusCtx, {
-            type: 'doughnut',
-            data: {
-                labels: Object.keys(statusData),
-                datasets: [{
-                    data: Object.values(statusData),
-                    backgroundColor: [
-                        'rgba(255, 99, 132, 0.8)',
-                        'rgba(54, 162, 235, 0.8)',
-                        'rgba(255, 206, 86, 0.8)',
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(153, 102, 255, 0.8)',
-                        'rgba(255, 159, 64, 0.8)',
-                        'rgba(199, 199, 199, 0.8)'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true
-            }
-        });
+        const statusCtx = document.getElementById('statusChart');
+        if (statusCtx) {
+            const statusData = {{ status_counts|tojson }};
+            const safeStatusData = safeGetData(statusData, {'Нет данных': 1});
+            
+            new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(safeStatusData),
+                    datasets: [{
+                        data: Object.values(safeStatusData),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 206, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(199, 199, 199, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
 
         // График расходов по месяцам
-        const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-        const monthlyCosts = {{ monthly_costs|tojson }};
-        const monthlyActual = {{ monthly_actual|tojson }};
-        const months = Object.keys(monthlyCosts).sort();
-        new Chart(monthlyCtx, {
-            type: 'bar',
-            data: {
-                labels: months,
-                datasets: [{
-                    label: 'Предполагаемые расходы',
-                    data: months.map(m => monthlyCosts[m] || 0),
-                    backgroundColor: 'rgba(54, 162, 235, 0.8)'
-                }, {
-                    label: 'Фактические расходы',
-                    data: months.map(m => monthlyActual[m] || 0),
-                    backgroundColor: 'rgba(75, 192, 192, 0.8)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function (value) {
-                                return value.toLocaleString('ru-RU') + ' ₽';
+        const monthlyCtx = document.getElementById('monthlyChart');
+        if (monthlyCtx) {
+            const monthlyCosts = {{ monthly_costs|tojson }};
+            const monthlyActual = {{ monthly_actual|tojson }};
+            
+            const safeMonthlyCosts = safeGetData(monthlyCosts, {});
+            const safeMonthlyActual = safeGetData(monthlyActual, {});
+            
+            // Объединяем все месяцы из обоих наборов данных
+            const allMonths = [...new Set([
+                ...Object.keys(safeMonthlyCosts),
+                ...Object.keys(safeMonthlyActual)
+            ])].sort();
+            
+            // Если нет месяцев, создаем один текущий месяц
+            const months = allMonths.length > 0 ? allMonths : [new Date().toISOString().slice(0, 7)];
+            
+            new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Предполагаемые расходы',
+                        data: months.map(m => safeMonthlyCosts[m] || 0),
+                        backgroundColor: 'rgba(54, 162, 235, 0.8)'
+                    }, {
+                        label: 'Фактические расходы',
+                        data: months.map(m => safeMonthlyActual[m] || 0),
+                        backgroundColor: 'rgba(75, 192, 192, 0.8)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return value.toLocaleString('ru-RU') + ' ₽';
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
 
         // График расходов по подразделениям
-        const deptCtx = document.getElementById('departmentChart').getContext('2d');
-        const deptData = {{ department_costs|tojson }};
-        const deptLabels = Object.keys(deptData).sort((a, b) => deptData[b] - deptData[a]).slice(0, 10);
-        new Chart(deptCtx, {
-            type: 'bar',
-            data: {
-                labels: deptLabels,
-                datasets: [{
-                    label: 'Расходы по подразделениям',
-                    data: deptLabels.map(d => deptData[d] || 0),
-                    backgroundColor: 'rgba(153, 102, 255, 0.8)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                indexAxis: 'y',
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function (value) {
-                                return value.toLocaleString('ru-RU') + ' ₽';
+        const deptCtx = document.getElementById('departmentChart');
+        if (deptCtx) {
+            const deptData = {{ department_costs|tojson }};
+            const safeDeptData = safeGetData(deptData, {'Нет данных': 0});
+            
+            const deptLabels = Object.keys(safeDeptData)
+                .sort((a, b) => safeDeptData[b] - safeDeptData[a])
+                .slice(0, 10);
+            
+            new Chart(deptCtx, {
+                type: 'bar',
+                data: {
+                    labels: deptLabels,
+                    datasets: [{
+                        label: 'Расходы по подразделениям',
+                        data: deptLabels.map(d => safeDeptData[d] || 0),
+                        backgroundColor: 'rgba(153, 102, 255, 0.8)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return value.toLocaleString('ru-RU') + ' ₽';
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
     </script>
 {% endblock %}

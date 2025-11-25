@@ -3,23 +3,32 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from collections import defaultdict
+from dotenv import load_dotenv
+import secrets
+
+load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///business_trips.db'
+
+DATABASE_URL = os.getenv('DATABASE_URL')
+if DATABASE_URL is None:
+    raise ValueError("Не установлена переменная окружения DATABASE_URL")
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+db_session = db.session
 
 # Модели базы данных
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(10), nullable=False)  # A, B (Безопасность), BU (Бухгалтерия), GR, R, S, K, TK, Z
     manager_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
@@ -36,7 +45,7 @@ class BusinessTrip(db.Model):
     __tablename__ = 'business_trip'
     id = db.Column(db.Integer, primary_key=True)
     trip_number = db.Column(db.String(20), unique=True)
-    created_date = db.Column(db.DateTime, default=datetime.utcnow)
+    created_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     status = db.Column(db.String(50), default='Планируемая')
 
     # Основная информация
@@ -111,7 +120,6 @@ def login_required(f):
         if 'user_id' not in session:
             return redirect(url_for('login'))
         return f(*args, **kwargs)
-
     return decorated_function
 
 
@@ -121,22 +129,24 @@ def role_required(roles):
         def decorated_function(*args, **kwargs):
             if 'user_id' not in session:
                 return redirect(url_for('login'))
-            user = User.query.get(session['user_id'])
+            # Используем современный синтаксис
+            user = db_session.get(User, session['user_id'])
+            if not user:
+                flash('Пользователь не найден', 'error')
+                return redirect(url_for('login'))
             if user.role not in roles:
                 flash('Недостаточно прав для доступа к этой странице', 'error')
                 return redirect(url_for('dashboard'))
             return f(*args, **kwargs)
-
         return decorated_function
-
     return decorator
 
 
 # Функция для проверки просроченных согласований и перенаправления на ГР
 def check_and_redirect_overdue_approvals():
     """Проверяет заявки, ожидающие согласования более 1 рабочего дня, и перенаправляет на ГР"""
-    now = datetime.utcnow()
-    one_working_day = timedelta(days=1)  # Упрощенно: 1 день (можно улучшить для учета выходных)
+    now = datetime.now(timezone.utc)
+    one_working_day = timedelta(days=1)
 
     overdue_trips = BusinessTrip.query.filter(
         BusinessTrip.status == 'Ожидают согласования',
@@ -154,7 +164,7 @@ def check_and_redirect_overdue_approvals():
                     trip.manager_id = gr_manager.id
                     # Обновляем дату запроса на согласование
                     trip.approval_request_date = now
-                    db.session.commit()
+                    db_session.commit()
 
 
 # Маршруты аутентификации
@@ -200,7 +210,11 @@ def dashboard():
     # Проверяем просроченные согласования
     check_and_redirect_overdue_approvals()
 
-    user = User.query.get(session['user_id'])
+    # Используем современный синтаксис
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
 
     # Логика отображения заявок в зависимости от роли
     if user.role == 'A':  # Администратор
@@ -230,16 +244,19 @@ def dashboard():
     else:
         trips = BusinessTrip.query.all()
 
-    return render_template('dashboard.html', user=user, trips=trips, now=datetime.utcnow())
+    return render_template('dashboard.html', user=user, trips=trips, now=datetime.now(timezone.utc))
 
 
 @app.route('/trips')
 @login_required
 def trips():
-    # Проверяем просроченные согласования
     check_and_redirect_overdue_approvals()
-
-    user = User.query.get(session['user_id'])
+    
+    # Используем современный синтаксис
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
 
     # Базовый запрос в зависимости от роли
     if user.role == 'A':  # Администратор
@@ -324,46 +341,48 @@ def trips():
 def create_trip():
     if request.method == 'POST':
         try:
-            user = User.query.get(session['user_id'])
+            # Используем современный синтаксис
+            user = db_session.get(User, session['user_id'])
+            if not user:
+                flash('Пользователь не найден', 'error')
+                return redirect(url_for('login'))
 
-            # Определяем employee_id: для руководителей и администраторов можно выбрать сотрудника
+            # Определяем employee_id
             employee_id = request.form.get('employee_id')
             if not employee_id:
-                employee_id = session['user_id']  # По умолчанию - текущий пользователь
+                employee_id = session['user_id']
             else:
                 employee_id = int(employee_id)
 
-            # Проверка прав: руководитель может создавать заявки только для своих подчиненных
+            # Проверка прав
             if user.role == 'R' and employee_id != user.id:
                 subordinate_ids = [sub.id for sub in user.subordinates]
                 if employee_id not in subordinate_ids:
                     flash('Вы можете создавать заявки только для своих подчиненных', 'error')
                     return redirect(url_for('create_trip'))
 
-            # Получаем данные выбранного сотрудника
-            employee = User.query.get(employee_id)
+            # Используем современный синтаксис
+            employee = db_session.get(User, employee_id)
             if not employee:
                 flash('Сотрудник не найден', 'error')
                 return redirect(url_for('create_trip'))
 
-            # Автоматически определяем manager_id из базы данных сотрудника
-            manager_id = employee.manager_id
-            form_manager_id = request.form.get('manager_id')
-            if not manager_id and form_manager_id and form_manager_id.strip():
-                try:
-                    manager_id = int(form_manager_id)
-                except (ValueError, TypeError):
-                    manager_id = None
-
+            # Остальная логика создания заявки...
             start_date = datetime.strptime(request.form['start_date'], '%Y-%m-%d')
             end_date = datetime.strptime(request.form['end_date'], '%Y-%m-%d')
-            duration = (end_date - start_date).days + 1  # +1 чтобы включить оба дня
+            duration = (end_date - start_date).days + 1
 
-            # Создание новой заявки
+            # --- НОВАЯ ЛОГИКА ---
+            make_active = request.form.get('make_active') == 'on'
+
+            # Определяем статус и активацию
+            initial_status = 'Активированная' if make_active else 'Планируемая'
+            is_activated_value = make_active # True если активировать, False если нет
+
             trip = BusinessTrip(
-                trip_number=f"BT-{datetime.now().strftime('%Y%m%d-%H%M%S')}",
+                trip_number=f"BT-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
                 employee_id=employee_id,
-                manager_id=manager_id,
+                manager_id=employee.manager_id,
                 department=request.form.get('department') or employee.department,
                 start_date=start_date,
                 end_date=end_date,
@@ -377,28 +396,43 @@ def create_trip():
                 regularity=request.form.get('regularity', ''),
                 receiving_party=request.form.get('receiving_party', ''),
                 over_limit=request.form.get('over_limit') == 'on',
-                status='Планируемая',
-                is_activated=False
+                status=initial_status,
+                is_activated=is_activated_value # Устанавливаем флаг активации
             )
-
-            db.session.add(trip)
-            db.session.commit()
-
+            db_session.add(trip)
+            db_session.commit()
             flash('Заявка на командировку создана', 'success')
             return redirect(url_for('trips'))
         except Exception as e:
-            db.session.rollback()
+            db_session.rollback()
             flash(f'Ошибка при создании заявки: {str(e)}', 'error')
 
-    user = User.query.get(session['user_id'])
-    managers = User.query.filter(User.role.in_(['R', 'GR'])).all()
+    # Используем современный синтаксис
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
 
-    # Для руководителей и администраторов - список сотрудников для выбора
+    managers = User.query.filter(User.role.in_(['R', 'GR'])).all()
     employees = []
     if user.role == 'A' or user.role == 'GR':
         employees = User.query.filter(User.role == 'S').all()
     elif user.role == 'R':
-        # Руководитель видит только своих подчиненных
+        employees = user.subordinates
+    return render_template('create_trip.html', user=user, managers=managers, employees=employees)
+
+    # Используем современный синтаксис
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
+
+    managers = User.query.filter(User.role.in_(['R', 'GR'])).all()
+
+    employees = []
+    if user.role == 'A' or user.role == 'GR':
+        employees = User.query.filter(User.role == 'S').all()
+    elif user.role == 'R':
         employees = user.subordinates
 
     return render_template('create_trip.html', user=user, managers=managers, employees=employees)
@@ -407,18 +441,24 @@ def create_trip():
 @app.route('/trip/<int:trip_id>')
 @login_required
 def trip_detail(trip_id):
-    # Проверяем просроченные согласования
     check_and_redirect_overdue_approvals()
 
-    trip = BusinessTrip.query.get_or_404(trip_id)
-    user = User.query.get(session['user_id'])
+    # Используем современный синтаксис
+    trip = db_session.get(BusinessTrip, trip_id)
+    if not trip:
+        flash('Заявка не найдена', 'error')
+        return redirect(url_for('dashboard'))
+
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
 
     # Проверка прав доступа
     if user.role == 'S' and trip.employee_id != user.id:
         flash('Доступ запрещен', 'error')
         return redirect(url_for('dashboard'))
-    elif user.role == 'R' and trip.employee_id != user.id and trip.employee_id not in [sub.id for sub in
-                                                                                       user.subordinates]:
+    elif user.role == 'R' and trip.employee_id != user.id and trip.employee_id not in [sub.id for sub in user.subordinates]:
         flash('Доступ запрещен', 'error')
         return redirect(url_for('dashboard'))
     elif user.role == 'Z' and not trip.procurement_needed:
@@ -432,7 +472,11 @@ def trip_detail(trip_id):
 @login_required
 @role_required(['A', 'B', 'BU', 'GR', 'R', 'S', 'TK', 'Z'])
 def reports():
-    user = User.query.get(session['user_id'])
+    # Используем современный синтаксис
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
 
     # Базовый запрос - только активированные заявки
     base_query = BusinessTrip.query.filter(BusinessTrip.is_activated == True)
@@ -487,7 +531,7 @@ def reports():
                          for t in overrun_trips if
                          (t.actual_costs or t.estimated_costs or 0) > (t.estimated_costs or 0))
 
-    # Данные для графиков
+    # Данные для графиков - обеспечиваем, что они никогда не будут пустыми
     status_counts = defaultdict(int)
     monthly_costs = defaultdict(float)
     monthly_actual = defaultdict(float)
@@ -501,6 +545,15 @@ def reports():
             monthly_actual[month_key] += trip.actual_costs or 0
         if trip.department:
             department_costs[trip.department] += trip.estimated_costs or 0
+
+    # Если нет данных, создаем заглушки для графиков
+    if not status_counts:
+        status_counts = {'Нет данных': 1}
+    if not monthly_costs:
+        monthly_costs = {datetime.now(timezone.utc).strftime('%Y-%m'): 0}
+        monthly_actual = {datetime.now(timezone.utc).strftime('%Y-%m'): 0}
+    if not department_costs:
+        department_costs = {'Нет данных': 0}
 
     return render_template('reports.html', user=user, trips=trips,
                            total_trips=total_trips, total_costs=total_costs,
@@ -519,7 +572,12 @@ def reports():
 @login_required
 @role_required(['A', 'B', 'BU', 'GR', 'R', 'S'])
 def planning():
-    user = User.query.get(session['user_id'])
+    # Используем современный синтаксис
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
+
     # Запланированные командировки с учетом ролей
     base_query = BusinessTrip.query.filter_by(status='Планируемая')
 
@@ -545,7 +603,12 @@ def planning():
 @login_required
 @role_required(['A', 'B'])  # Только Администратор и Отдел безопасности
 def employees():
-    user = User.query.get(session['user_id'])
+    # Используем современный синтаксис
+    user = db_session.get(User, session['user_id'])
+    if not user:
+        flash('Пользователь не найден', 'error')
+        return redirect(url_for('login'))
+
     employees_list = User.query.all()
     managers = User.query.filter(User.role.in_(['R', 'GR'])).all()
     return render_template('employees.html', user=user, employees=employees_list, managers=managers)
@@ -567,12 +630,12 @@ def create_employee():
                 passport_data=request.form.get('passport_data', ''),
                 email=request.form.get('email', '')
             )
-            db.session.add(employee)
-            db.session.commit()
+            db_session.add(employee)
+            db_session.commit()
             flash('Сотрудник успешно создан', 'success')
             return redirect(url_for('employees'))
         except Exception as e:
-            db.session.rollback()
+            db_session.rollback()
             flash(f'Ошибка при создании сотрудника: {str(e)}', 'error')
 
     managers = User.query.filter(User.role.in_(['R', 'GR'])).all()
@@ -584,7 +647,11 @@ def create_employee():
 @login_required
 @role_required(['A'])  # Только Администратор может редактировать
 def edit_employee(employee_id):
-    employee = User.query.get_or_404(employee_id)
+    # Используем современный синтаксис
+    employee = db_session.get(User, employee_id)
+    if not employee:
+        flash('Сотрудник не найден', 'error')
+        return redirect(url_for('employees'))
 
     if request.method == 'POST':
         try:
@@ -598,11 +665,11 @@ def edit_employee(employee_id):
             employee.passport_data = request.form.get('passport_data', '')
             employee.email = request.form.get('email', '')
 
-            db.session.commit()
+            db_session.commit()
             flash('Сотрудник успешно обновлен', 'success')
             return redirect(url_for('employees'))
         except Exception as e:
-            db.session.rollback()
+            db_session.rollback()
             flash(f'Ошибка при обновлении сотрудника: {str(e)}', 'error')
 
     managers = User.query.filter(User.role.in_(['R', 'GR'])).all()
@@ -614,17 +681,22 @@ def edit_employee(employee_id):
 @login_required
 @role_required(['A'])  # Только Администратор может удалять
 def delete_employee(employee_id):
-    employee = User.query.get_or_404(employee_id)
+    # Используем современный синтаксис
+    employee = db_session.get(User, employee_id)
+    if not employee:
+        flash('Сотрудник не найден', 'error')
+        return redirect(url_for('employees'))
+        
     if employee.id == session['user_id']:
         flash('Нельзя удалить самого себя', 'error')
         return redirect(url_for('employees'))
 
     try:
-        db.session.delete(employee)
-        db.session.commit()
+        db_session.delete(employee)
+        db_session.commit()
         flash('Сотрудник успешно удален', 'success')
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         flash(f'Ошибка при удалении сотрудника: {str(e)}', 'error')
 
     return redirect(url_for('employees'))
@@ -635,17 +707,20 @@ def delete_employee(employee_id):
 @login_required
 def update_trip_status(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        new_status = request.json.get('status')
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
 
+        new_status = request.json.get('status')
         if new_status:
             trip.status = new_status
-            db.session.commit()
+            db_session.commit()
             return jsonify({'success': True, 'new_status': new_status})
 
         return jsonify({'success': False})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -653,16 +728,23 @@ def update_trip_status(trip_id):
 @login_required
 def activate_trip(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'GR', 'R'] and trip.employee_id != user.id:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.is_activated = True
         trip.status = 'Активированная'
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -670,16 +752,23 @@ def activate_trip(trip_id):
 @login_required
 def send_for_approval(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'GR', 'R'] and trip.employee_id != user.id:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.status = 'Ожидают согласования'
-        trip.approval_request_date = datetime.utcnow()
-        db.session.commit()
+        trip.approval_request_date = datetime.now(timezone.utc)
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -687,16 +776,23 @@ def send_for_approval(trip_id):
 @login_required
 def deactivate_trip(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'GR', 'R'] and trip.employee_id != user.id:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.is_activated = False
         trip.status = 'Планируемая'
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -704,16 +800,23 @@ def deactivate_trip(trip_id):
 @login_required
 def reject_trip(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['R', 'GR']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.status = 'Не согласована'
         trip.cancellation_reason = request.json.get('reason', '')
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -721,16 +824,23 @@ def reject_trip(trip_id):
 @login_required
 def cancel_trip(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'GR', 'R'] and trip.employee_id != user.id:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.status = 'Отменена'
         trip.cancellation_reason = request.json.get('reason', '')
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -738,15 +848,22 @@ def cancel_trip(trip_id):
 @login_required
 def approve_overrun(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['R', 'GR']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.overrun_approved = True
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -754,15 +871,22 @@ def approve_overrun(trip_id):
 @login_required
 def approve_booking_overrun(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'TK']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.booking_overrun_approved = True
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -770,15 +894,22 @@ def approve_booking_overrun(trip_id):
 @login_required
 def complete_booking(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'TK']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.booking_completed = True
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -786,15 +917,22 @@ def complete_booking(trip_id):
 @login_required
 def toggle_procurement(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'Z']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.procurement_needed = request.json.get('needed', False)
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -802,15 +940,22 @@ def toggle_procurement(trip_id):
 @login_required
 def toggle_procurement_done(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'Z']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.procurement_done = request.json.get('done', False)
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -818,16 +963,23 @@ def toggle_procurement_done(trip_id):
 @login_required
 def set_geo_location(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if trip.employee_id != user.id:
             return jsonify({'success': False, 'error': 'Только сотрудник может установить геолокацию'})
         trip.geo_location = request.json.get('location', '')
-        trip.geo_location_date = datetime.utcnow()
-        db.session.commit()
+        trip.geo_location_date = datetime.now(timezone.utc)
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -835,15 +987,22 @@ def set_geo_location(trip_id):
 @login_required
 def approve_report_overrun(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['R', 'GR']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.report_overrun_approved = True
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -851,15 +1010,22 @@ def approve_report_overrun(trip_id):
 @login_required
 def toggle_report_prepared(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if trip.employee_id != user.id:
             return jsonify({'success': False, 'error': 'Только сотрудник может отметить отчет как подготовленный'})
         trip.report_prepared = request.json.get('prepared', False)
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -867,15 +1033,22 @@ def toggle_report_prepared(trip_id):
 @login_required
 def toggle_report_reviewed(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['R', 'GR']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.report_reviewed = request.json.get('reviewed', False)
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -883,15 +1056,22 @@ def toggle_report_reviewed(trip_id):
 @login_required
 def toggle_trip_closed(trip_id):
     try:
-        trip = BusinessTrip.query.get_or_404(trip_id)
-        user = User.query.get(session['user_id'])
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+            
         if user.role not in ['A', 'BU']:
             return jsonify({'success': False, 'error': 'Недостаточно прав'})
         trip.trip_closed = request.json.get('closed', False)
-        db.session.commit()
+        db_session.commit()
         return jsonify({'success': True})
     except Exception as e:
-        db.session.rollback()
+        db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -923,10 +1103,10 @@ def init_db():
             department='Руководство'
         )
 
-        db.session.add_all([admin, gr_manager])
-        db.session.commit()
+        db_session.add_all([admin, gr_manager])
+        db_session.commit()
 
-        # Руководитель (используем объект gr_manager для manager_id)
+        # Руководитель
         manager = User(
             username='manager',
             password_hash=generate_password_hash('manager123'),
@@ -936,22 +1116,18 @@ def init_db():
             department='Отдел разработки'
         )
 
-        # Сотрудник (используем объект manager для manager_id)
+        # Сотрудник
         employee = User(
             username='employee',
             password_hash=generate_password_hash('employee123'),
             full_name='Сотрудник Тестовый',
             role='S',
-            manager_id=None,  # Будет установлен после создания manager
+            manager_id=manager.id,
             department='Отдел разработки'
         )
 
-        db.session.add_all([manager, employee])
-        db.session.commit()
-
-        # Обновляем manager_id сотрудника после создания manager
-        employee.manager_id = manager.id
-        db.session.commit()
+        db_session.add_all([manager, employee])
+        db_session.commit()
         print("Тестовые пользователи созданы")
 
         # Создаем тестовую командировку
@@ -962,20 +1138,21 @@ def init_db():
             department='Отдел разработки',
             start_date=datetime(2025, 1, 15),
             end_date=datetime(2025, 1, 20),
-            duration=6,  # 6 дней (15-20 января включительно)
+            duration=6,
             destination='Москва',
             purpose='Участие в конференции',
             estimated_costs=15000.0,
             status='Планируемая'
         )
 
-        db.session.add(trip)
-        db.session.commit()
+        db_session.add(trip)
+        db_session.commit()
         print("Тестовая командировка создана")
 
 
 # Инициализация при запуске приложения
 with app.app_context():
+    db.drop_all()
     init_db()
 
 if __name__ == '__main__':

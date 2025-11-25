@@ -118,6 +118,19 @@
                     </div>
                 </div>
 
+                <!-- Новый флажок для активации -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="make_active" name="make_active">
+                            <label class="form-check-label" for="make_active">
+                                Сделать активированной
+                            </label>
+                        </div>
+                        <small class="form-text text-muted">Если отмечено, командировка будет сразу активирована и не потребует отдельного шага активации. В противном случае она будет сохранена как "Планируемая".</small>
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-primary">Создать заявку</button>
                 <a href="{{ url_for('trips') }}" class="btn btn-secondary">Отмена</a>
             </form>
