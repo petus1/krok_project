@@ -65,7 +65,7 @@
                                value="{{ current_filters.date_to or '' }}">
                     </div>
                     <div class="col-md-6 mb-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary me-2">Применить фильтры</button>
+                        <button type="submit" class="btn btn-custom me-2">Применить фильтры</button>
                         <a href="{{ url_for('trips') }}" class="btn btn-secondary">Сбросить</a>
                     </div>
                 </div>
@@ -113,7 +113,7 @@
                                 </td>
                                 <td>
                                     <a href="{{ url_for('trip_detail', trip_id=trip.id) }}"
-                                       class="btn btn-sm btn-outline-primary">Просмотр</a>
+                                       class="btn btn-sm btn-custom">Просмотр</a>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -125,4 +125,16 @@
             {% endif %}
         </div>
     </div>
+
+    <style>
+        .btn-custom {
+            background-color: #00C573 !important;
+            border-color: #00C573 !important;
+            color: white !important;
+        }
+        .btn-custom:hover {
+            background-color: #00a864 !important; /* немного темнее при наведении */
+            border-color: #00a864 !important;
+        }
+    </style>
 {% endblock %}

@@ -500,6 +500,7 @@ def reports():
     status_not_approved = request.args.get('status_not_approved') == 'true'
     status_closed = request.args.get('status_closed') == 'true'
     sort_by = request.args.get('sort_by', 'costs')  # costs, overrun
+    
 
     if project_number:
         base_query = base_query.filter(BusinessTrip.project_number.contains(project_number))
@@ -536,8 +537,16 @@ def reports():
     monthly_costs = defaultdict(float)
     monthly_actual = defaultdict(float)
     department_costs = defaultdict(float)
+    status_overrun_counts = defaultdict(int)
+    total_trips_with_overrun = 0
+    total_trips_without_overrun = 0
 
     for trip in trips:
+        status_counts[trip.status] += 1
+        if trip.overrun_approved or trip.booking_overrun_approved or trip.report_overrun_approved:
+            total_trips_with_overrun += 1
+        else:
+            total_trips_without_overrun += 1
         status_counts[trip.status] += 1
         if trip.start_date:
             month_key = trip.start_date.strftime('%Y-%m')
@@ -545,6 +554,11 @@ def reports():
             monthly_actual[month_key] += trip.actual_costs or 0
         if trip.department:
             department_costs[trip.department] += trip.estimated_costs or 0
+    
+    status_counts = {
+        'Согласованный перерасход': total_trips_with_overrun,
+        'Без согласованного перерасхода': total_trips_without_overrun
+    }
 
     # Если нет данных, создаем заглушки для графиков
     if not status_counts:
@@ -554,12 +568,15 @@ def reports():
         monthly_actual = {datetime.now(timezone.utc).strftime('%Y-%m'): 0}
     if not department_costs:
         department_costs = {'Нет данных': 0}
+    if total_trips_with_overrun == 0 and total_trips_without_overrun == 0:
+        status_counts = {'Нет данных': 1}
 
     return render_template('reports.html', user=user, trips=trips,
                            total_trips=total_trips, total_costs=total_costs,
                            total_actual_costs=total_actual_costs, overrun_trips=len(overrun_trips),
                            overrun_amount=overrun_amount,
                            status_counts=dict(status_counts),
+                           status_overrun_counts=dict(status_overrun_counts),
                            monthly_costs=dict(monthly_costs),
                            monthly_actual=dict(monthly_actual),
                            department_costs=dict(department_costs),
@@ -1077,6 +1094,7 @@ def toggle_trip_closed(trip_id):
 
 # Инициализация базы данных с тестовыми данными
 def init_db():
+    from datetime import datetime, timedelta
     # Создаем все таблицы
     db.create_all()
     print("Таблицы базы данных созданы")
@@ -1084,7 +1102,6 @@ def init_db():
     # Создание тестовых пользователей если их нет
     if not User.query.first():
         print("Создание тестовых пользователей...")
-
         # Администратор
         admin = User(
             username='admin',
@@ -1093,7 +1110,6 @@ def init_db():
             role='A',
             department='ИТ'
         )
-
         # Главный руководитель
         gr_manager = User(
             username='gr_manager',
@@ -1102,7 +1118,6 @@ def init_db():
             role='GR',
             department='Руководство'
         )
-
         db_session.add_all([admin, gr_manager])
         db_session.commit()
 
@@ -1115,7 +1130,6 @@ def init_db():
             manager_id=gr_manager.id,
             department='Отдел разработки'
         )
-
         # Сотрудник
         employee = User(
             username='employee',
@@ -1125,34 +1139,97 @@ def init_db():
             manager_id=manager.id,
             department='Отдел разработки'
         )
-
         db_session.add_all([manager, employee])
         db_session.commit()
         print("Тестовые пользователи созданы")
 
-        # Создаем тестовую командировку
+    else:
+        print("Тестовые пользователи уже существуют. Пропускаем создание.")
+
+    # --- НАЧАЛО: Создание тестовых командировок ---
+    # Найти или использовать существующего сотрудника и менеджера
+    employee = User.query.filter_by(username='employee').first()
+    if not employee:
+        # Если не найден, ищем любого сотрудника
+        employee = User.query.filter_by(role='S').first()
+    if not employee:
+        print("Предупреждение: Не найден ни один сотрудник. Пропуск создания тестовых командировок.")
+        return
+
+    manager = User.query.filter_by(username='manager').first()
+    if not manager:
+        # Если не найден, ищем любого руководителя
+        manager = User.query.filter(User.role.in_(['R', 'GR'])).first()
+    if not manager:
+        print("Предупреждение: Не найден ни один руководитель. Пропуск создания тестовых командировок.")
+        return
+
+    print("Создание дополнительных тестовых заявок...")
+
+    base_date = datetime(2025, 1, 1)
+    destinations = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань']
+    purposes = ['Участие в конференции', 'Обучение', 'Консультации', 'Переговоры', 'Аудит']
+
+    # Проверим, есть ли уже тестовые заявки с префиксом BT-2025, чтобы не дублировать
+    existing_trips = BusinessTrip.query.filter(BusinessTrip.trip_number.like('BT-2025%')).count()
+    if existing_trips > 0:
+        print(f"Найдено {existing_trips} существующих тестовых заявок. Пропуск создания новых.")
+        return
+
+    for i in range(50): # Увеличим количество тестовых заявок до 50
+        start_date = base_date + timedelta(days=i*3)
+        end_date = start_date + timedelta(days=2)
+        trip_number = f"BT-2025{i+1:04d}"
+
+        # Примерно 1/5 заявок будут иметь какой-то согласованный перерасход
+        overrun_approved = True if i % 5 == 0 else False
+        booking_overrun_approved = True if i % 5 == 1 else False
+        report_overrun_approved = True if i % 5 == 2 else False
+
+        # Примерно половина заявок будет активирована
+        is_activated = True if i % 2 == 0 else False
+        status = 'Активированная' if is_activated else 'Планируемая'
+        if i % 7 == 0:
+            status = 'Согласована'
+        elif i % 7 == 1:
+            status = 'Ожидают согласования'
+        elif i % 7 == 2:
+            status = 'Отменена'
+        elif i % 7 == 3:
+            status = 'Не согласована'
+        elif i % 7 == 4:
+            status = 'Закрыта'
+
         trip = BusinessTrip(
-            trip_number="BT-20250101-0001",
+            trip_number=trip_number,
             employee_id=employee.id,
             manager_id=manager.id,
             department='Отдел разработки',
-            start_date=datetime(2025, 1, 15),
-            end_date=datetime(2025, 1, 20),
-            duration=6,
-            destination='Москва',
-            purpose='Участие в конференции',
-            estimated_costs=15000.0,
-            status='Планируемая'
+            start_date=start_date,
+            end_date=end_date,
+            duration=3,
+            destination=destinations[i % len(destinations)],
+            purpose=purposes[i % len(purposes)],
+            estimated_costs=10000.0 + (i * 500),
+            actual_costs=None, # Пока нет фактических расходов
+            status=status,
+            is_activated=is_activated,
+            over_limit = (i % 4 == 0), # Пример перерасхода
+            # Флаги перерасхода
+            overrun_approved=overrun_approved,
+            booking_overrun_approved=booking_overrun_approved,
+            report_overrun_approved=report_overrun_approved,
+            # Флаг закрытия
+            trip_closed=(status == 'Закрыта')
         )
-
         db_session.add(trip)
-        db_session.commit()
-        print("Тестовая командировка создана")
+
+    db_session.commit()
+    print(f"Создано {50} тестовых командировок")
 
 
 # Инициализация при запуске приложения
 with app.app_context():
-    db.drop_all()
     init_db()
 
 if __name__ == '__main__':

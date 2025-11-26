@@ -62,11 +62,76 @@
                         </div>
                     </div>
                     <div class="col-md-12 mb-3">
-                        <button type="submit" class="btn btn-primary me-2">Применить фильтры</button>
+                        <button type="submit" class="btn btn-custom me-2">Применить фильтры</button>
                         <a href="{{ url_for('reports') }}" class="btn btn-secondary">Сбросить</a>
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Таблица отчетов -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Заявки на командировки</h5>
+        </div>
+        <div class="card-body">
+            {% if trips %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                        <tr>
+                            <th>Номер заявки</th>
+                            <th>Сотрудник</th>
+                            <th>Проект</th>
+                            <th>Цель</th>
+                            <th>Предполагаемые расходы</th>
+                            <th>Фактические расходы</th>
+                            <th>Перерасход</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for trip in trips %}
+                            <tr>
+                                <td>{{ trip.trip_number }}</td>
+                                <td>{{ trip.employee.full_name }}</td>
+                                <td>{{ trip.project_number or 'Не указан' }}</td>
+                                <td>{{ trip.purpose or 'Не указана' }}</td>
+                                <td>{{ "%.2f"|format(trip.estimated_costs or 0) }} ₽</td>
+                                <td>{{ "%.2f"|format(trip.actual_costs or 0) }} ₽</td>
+                                <td>
+                                    {% if trip.actual_costs and trip.estimated_costs %}
+                                        {% set diff = trip.actual_costs - trip.estimated_costs %}
+                                        {% if diff > 0 %}
+                                            <span class="text-danger">+{{ "%.2f"|format(diff) }} ₽</span>
+                                        {% elif diff < 0 %}
+                                            <span class="text-success">{{ "%.2f"|format(diff) }} ₽</span>
+                                        {% else %}
+                                            <span class="text-muted">0 ₽</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if trip.status == 'Согласована' %}success{% elif trip.status == 'Ожидают согласования' %}warning{% elif trip.status == 'Отменена' or trip.status == 'Не согласована' %}danger{% else %}secondary{% endif %}">
+                                        {{ trip.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('trip_detail', trip_id=trip.id) }}"
+                                       class="btn btn-sm btn-custom">Просмотр</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Нет данных для отображения</p>
+            {% endif %}
         </div>
     </div>
 
@@ -145,70 +210,17 @@
         </div>
     </div>
 
-    <!-- Таблица отчетов -->
-    <div class="card">
-        <div class="card-header">
-            <h5>Заявки на командировки</h5>
-        </div>
-        <div class="card-body">
-            {% if trips %}
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
-                        <tr>
-                            <th>Номер заявки</th>
-                            <th>Сотрудник</th>
-                            <th>Проект</th>
-                            <th>Цель</th>
-                            <th>Предполагаемые расходы</th>
-                            <th>Фактические расходы</th>
-                            <th>Перерасход</th>
-                            <th>Статус</th>
-                            <th>Действия</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {% for trip in trips %}
-                            <tr>
-                                <td>{{ trip.trip_number }}</td>
-                                <td>{{ trip.employee.full_name }}</td>
-                                <td>{{ trip.project_number or 'Не указан' }}</td>
-                                <td>{{ trip.purpose or 'Не указана' }}</td>
-                                <td>{{ "%.2f"|format(trip.estimated_costs or 0) }} ₽</td>
-                                <td>{{ "%.2f"|format(trip.actual_costs or 0) }} ₽</td>
-                                <td>
-                                    {% if trip.actual_costs and trip.estimated_costs %}
-                                        {% set diff = trip.actual_costs - trip.estimated_costs %}
-                                        {% if diff > 0 %}
-                                            <span class="text-danger">+{{ "%.2f"|format(diff) }} ₽</span>
-                                        {% elif diff < 0 %}
-                                            <span class="text-success">{{ "%.2f"|format(diff) }} ₽</span>
-                                        {% else %}
-                                            <span class="text-muted">0 ₽</span>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge bg-{% if trip.status == 'Согласована' %}success{% elif trip.status == 'Ожидают согласования' %}warning{% elif trip.status == 'Отменена' or trip.status == 'Не согласована' %}danger{% else %}secondary{% endif %}">
-                                        {{ trip.status }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('trip_detail', trip_id=trip.id) }}"
-                                       class="btn btn-sm btn-outline-primary">Просмотр</a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p>Нет данных для отображения</p>
-            {% endif %}
-        </div>
-    </div>
+    <style>
+        .btn-custom {
+            background-color: #00C573 !important;
+            border-color: #00C573 !important;
+            color: white !important;
+        }
+        .btn-custom:hover {
+            background-color: #00a864 !important; /* немного темнее при наведении */
+            border-color: #00a864 !important;
+        }
+    </style>
 {% endblock %}
 
 {% block scripts %}
@@ -224,22 +236,27 @@
         if (statusCtx) {
             const statusData = {{ status_counts|tojson }};
             const safeStatusData = safeGetData(statusData, {'Нет данных': 1});
-            
+
+            // Создаём массив меток и значений
+            const labels = Object.keys(safeStatusData);
+            const data = Object.values(safeStatusData);
+
+            // Определяем цвета: если метка содержит "Согласованный перерасход", то красный, иначе — нефритовый
+            const backgroundColors = labels.map(label => {
+                if (label.includes('Согласованный перерасход')) {
+                    return 'rgba(255, 99, 132, 0.8)'; // Красный
+                } else {
+                    return 'rgba(0, 197, 115, 0.8)';  // Нефритовый (#00C573)
+                }
+            });
+
             new Chart(statusCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(safeStatusData),
+                    labels: labels,
                     datasets: [{
-                        data: Object.values(safeStatusData),
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)',
-                            'rgba(255, 159, 64, 0.8)',
-                            'rgba(199, 199, 199, 0.8)'
-                        ]
+                        data: data,
+                        backgroundColor: backgroundColors
                     }]
                 },
                 options: {
@@ -341,4 +358,15 @@
             });
         }
     </script>
+    <style>
+        .btn-custom {
+            background-color: #00C573 !important;
+            border-color: #00C573 !important;
+            color: white !important;
+        }
+        .btn-custom:hover {
+            background-color: #00a864 !important; /* немного темнее при наведении */
+            border-color: #00a864 !important;
+        }
+    </style>
 {% endblock %}

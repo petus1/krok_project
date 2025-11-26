@@ -131,9 +131,22 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Создать заявку</button>
+                <button type="submit" class="btn btn-custom">Создать заявку</button>
                 <a href="{{ url_for('trips') }}" class="btn btn-secondary">Отмена</a>
             </form>
         </div>
     </div>
+
+    <style>
+        .btn-custom {
+            background-color: #00C573 !important;
+            border-color: #00C573 !important;
+            color: white !important;
+        }
+        .btn-custom:hover {
+            background-color: #00a864 !important; /* немного темнее при наведении */
+            border-color: #00a864 !important;
+        }
+    </style>
 {% endblock %}
+

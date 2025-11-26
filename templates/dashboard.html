@@ -89,7 +89,7 @@
                             <div class="card text-white">
                                 <div class="card-body text-center" style="background-color: #d85137;">
                                     <h3>{{ waiting_overrun }}</h3>
-                                    <p class="mb-0">Ожидают согласования на перерасход</p>
+                                    <p class="mb-0">На согласовании перерасхода</p>
                                 </div>
                             </div>
                         </div>
@@ -135,7 +135,7 @@
                         </div>
                         <div class="col-md-3 mb-3">
                             <div class="card text-white">
-                                <div class="card-body text-center" style="background-color: #5c80e6;">
+                                <div class="card-body text-center" style="background-color: #32ad8e;">
                                     <h3>{{ geo_set }}</h3>
                                     <p class="mb-0">Геопозиция установлена</p>
                                 </div>
@@ -143,7 +143,7 @@
                         </div>
                         <div class="col-md-3 mb-3">
                             <div class="card text-white">
-                                <div class="card-body text-center" style="background-color: #32ad8e;">
+                                <div class="card-body text-center" style="background-color: #42bfa1;">
                                     <h3>{{ report_prepared }}</h3>
                                     <p class="mb-0">Отчет подготовлен</p>
                                 </div>
@@ -151,7 +151,7 @@
                         </div>
                         <div class="col-md-3 mb-3">
                             <div class="card text-white">
-                                <div class="card-body text-center" style="background-color: #40c0a1;">
+                                <div class="card-body text-center" style="background-color: #7fb347;">
                                     <h3>{{ report_reviewed }}</h3>
                                     <p class="mb-0">Отчет проверен</p>
                                 </div>
@@ -159,7 +159,7 @@
                         </div>
                         <div class="col-md-3 mb-3">
                             <div class="card text-white">
-                                <div class="card-body text-center" style="background-color: #94c460;">
+                                <div class="card-body text-center" style="background-color: #94c559;">
                                     <h3>{{ closed }}</h3>
                                     <p class="mb-0">Командировка закрыта</p>
                                 </div>
@@ -270,7 +270,7 @@
                                         </td>
                                         <td>
                                             <a href="{{ url_for('trip_detail', trip_id=trip.id) }}"
-                                               class="btn btn-sm btn-outline-primary">Просмотр</a>
+                                               class="btn btn-sm btn-custom">Просмотр</a>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -284,4 +284,15 @@
             </div>
         </div>
     </div>
+    <style>
+        .btn-custom {
+            background-color: #00C573 !important;
+            border-color: #00C573 !important;
+            color: white !important;
+        }
+        .btn-custom:hover {
+            background-color: #00a864 !important; /* немного темнее при наведении */
+            border-color: #00a864 !important;
+        }
+    </style>
 {% endblock %}

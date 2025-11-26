@@ -6,7 +6,7 @@
     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
         <h1 class="h2">Управление сотрудниками</h1>
         {% if user.role == 'A' %}
-            <a href="{{ url_for('create_employee') }}" class="btn btn-primary">Добавить сотрудника</a>
+            <a href="{{ url_for('create_employee') }}" class="btn btn-custom">Добавить сотрудника</a>
         {% endif %}
     </div>
 
@@ -59,7 +59,7 @@
                                 {% if user.role == 'A' %}
                                     <td>
                                         <a href="{{ url_for('edit_employee', employee_id=emp.id) }}" 
-                                           class="btn btn-sm btn-outline-primary">Редактировать</a>
+                                           class="btn btn-sm btn-custom">Редактировать</a>
                                         {% if emp.id != user.id %}
                                             <form method="POST" action="{{ url_for('delete_employee', employee_id=emp.id) }}" 
                                                   style="display: inline;" 
@@ -79,4 +79,15 @@
             {% endif %}
         </div>
     </div>
+    <style>
+        .btn-custom {
+            background-color: #00C573 !important;
+            border-color: #00C573 !important;
+            color: white !important;
+        }
+        .btn-custom:hover {
+            background-color: #00a864 !important; /* немного темнее при наведении */
+            border-color: #00a864 !important;
+        }
+    </style>
 {% endblock %}
