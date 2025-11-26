@@ -1,7 +1,7 @@
 # 🌟 КРОК.Командировки
 
 <div align="center">
-  <img src="https://github.com/petus1/krok_project/blob/master/files/CROC_LOGO.png?raw=true" alt="KROK Logo" style="border-radius: 10px; height: 200px">
+  <img src="https://i.ibb.co/HpkL2PyJ/CROC-LOGO.png" alt="KROK Logo" style="border-radius: 10px; height: 200px">
   <br><br>
   <i>Автоматизированная система управления командировками</i>
   <br><br>
@@ -215,7 +215,7 @@ python app.py
 ---
 
 <div align="center">
-  <img src="https://github.com/petus1/krok_project/blob/master/files/success.gif?raw=true" alt="Success">
+  <img src="https://i.ibb.co/MxXV5y1P/success.gif" alt="Success">
   <h3>Готово! Приложение успешно установлено и запущено.</h3>
   <p>Наслаждайтесь удобным управлением командировками!</p>
 </div>
