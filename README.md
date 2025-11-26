@@ -6,7 +6,7 @@
   <i>Автоматизированная система управления командировками</i>
   <br><br>
   <a href="https://github.com/petus1/krok_project?tab=readme-ov-file#-%D0%B2%D0%BE%D0%B7%D0%BC%D0%BE%D0%B6%D0%BD%D0%BE%D1%81%D1%82%D0%B8">Возможности</a> •
-  <a href="https://github.com/petus1/krok_project/edit/master/README.md#%EF%B8%8F-%D1%82%D0%B5%D1%85%D0%BD%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D0%B8">Технологии</a> •
+  <a href="https://github.com/petus1/krok_project#%EF%B8%8F-%D1%82%D0%B5%D1%85%D0%BD%D0%BE%D0%BB%D0%BE%D0%B3%D0%B8%D0%B8">Технологии</a> •
   <a href="#-установка-и-запуск">Установка</a> •
   <a href="#-тестовые-учетные-записи">Учетные записи</a>
   <br><br>
