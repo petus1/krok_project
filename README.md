@@ -205,7 +205,7 @@ python app.py
 ---
 
 <div align="center">
-  <img src="https://i.ibb.co/zVvq0Tdz/success-1.gif" alt="Success">
+  <img src="https://iimg.su/s/02/gJNDixwxOdcmUk1PdQys8AOq2sXjM7sv0jAlJit0.gif" alt="Success">
   <h3>Готово! Приложение успешно установлено и запущено.</h3>
   <p>Наслаждайтесь удобным управлением командировками!</p>
 </div>
