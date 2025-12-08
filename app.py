@@ -25,13 +25,13 @@ db_session = db.session
 
 # Модели базы данных
 class User(db.Model):
-    __tablename__ = 'user'
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     full_name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(10), nullable=False)  # A, B (Безопасность), BU (Бухгалтерия), GR, R, S, K, TK, Z
-    manager_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     passport_data = db.Column(db.Text)
     department = db.Column(db.String(100))
 
@@ -49,8 +49,8 @@ class BusinessTrip(db.Model):
     status = db.Column(db.String(50), default='Планируемая')
 
     # Основная информация
-    employee_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    manager_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    employee_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    manager_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     department = db.Column(db.String(100))
 
     # Детали поездки
@@ -1110,19 +1110,261 @@ def init_db():
             role='A',
             department='ИТ'
         )
-        # Главный руководитель
+        # Главный руководитель (CEO)
         gr_manager = User(
             username='gr_manager',
             password_hash=generate_password_hash('gr123'),
-            full_name='Главный Руководитель',
+            full_name='Иванов Иван Иванович',
             role='GR',
-            department='Руководство'
+            department='Руководство',
+            passport_data='Паспорт РФ 1234 567890 выдан 01.01.2020 ОВД г. Москва',
+            email='ivanov.ii@company.com'
         )
         db_session.add_all([admin, gr_manager])
         db_session.commit()
 
-        # Руководитель
-        manager = User(
+        # Руководитель отдела продаж
+        sales_manager = User(
+            username='sales_manager',
+            password_hash=generate_password_hash('sales123'),
+            full_name='Петров Петр Петрович',
+            role='R',
+            manager_id=gr_manager.id,
+            department='Отдел продаж',
+            passport_data='Паспорт РФ 2345 678901 выдан 02.02.2021 ОВД г. Санкт-Петербург',
+            email='petrov.pp@sales.company.com'
+        )
+        # Руководитель отдела проектов
+        projects_manager = User(
+            username='projects_manager',
+            password_hash=generate_password_hash('projects123'),
+            full_name='Сидоров Сидор Сидорович',
+            role='R',
+            manager_id=gr_manager.id,
+            department='Отдел проектов',
+            passport_data='Паспорт РФ 3456 789012 выдан 03.03.2022 ОВД г. Екатеринбург',
+            email='sidorov.ss@projects.company.com'
+        )
+        # Руководитель ИТ отдела
+        it_manager = User(
+            username='it_manager',
+            password_hash=generate_password_hash('it123'),
+            full_name='Кузнецов Кузьма Кузьмич',
+            role='R',
+            manager_id=gr_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 4567 890123 выдан 04.04.2023 ОВД г. Новосибирск',
+            email='kuznetsov.kk@it.company.com'
+        )
+        # Бухгалтер
+        accountant = User(
+            username='accountant',
+            password_hash=generate_password_hash('bu123'),
+            full_name='Васильева Анна Сергеевна',
+            role='BU',
+            manager_id=gr_manager.id,
+            department='Бухгалтерия',
+            passport_data='Паспорт РФ 5678 901234 выдан 05.05.2024 ОВД г. Казань',
+            email='vasilieva.as@accounting.company.com'
+        )
+        # Менеджер по закупкам
+        procurement_manager = User(
+            username='procurement_manager',
+            password_hash=generate_password_hash('z123'),
+            full_name='Михайлов Михаил Михайлович',
+            role='Z',
+            manager_id=gr_manager.id,
+            department='Закупки',
+            passport_data='Паспорт РФ 6789 012345 выдан 06.06.2025 ОВД г. Нижний Новгород',
+            email='mikhailov.mm@procurement.company.com'
+        )
+        # Travel-координатор 1
+        tk1 = User(
+            username='tk1',
+            password_hash=generate_password_hash('tk123'),
+            full_name='Александрова Елена Викторовна',
+            role='TK',
+            manager_id=gr_manager.id,
+            department='Трэвел-координация',
+            passport_data='Паспорт РФ 7890 123456 выдан 07.07.2026 ОВД г. Самара',
+            email='alexandrova.ev@travel.company.com'
+        )
+        # Travel-координатор 2
+        tk2 = User(
+            username='tk2',
+            password_hash=generate_password_hash('tk456'),
+            full_name='Николаев Николай Николаевич',
+            role='TK',
+            manager_id=gr_manager.id,
+            department='Трэвел-координация',
+            passport_data='Паспорт РФ 8901 234567 выдан 08.08.2027 ОВД г. Омск',
+            email='nikolaev.nn@travel.company.com'
+        )
+        db_session.add_all([sales_manager, projects_manager, it_manager, accountant, procurement_manager, tk1, tk2])
+        db_session.commit()
+
+        # Сотрудники отдела продаж
+        sales_emp1 = User(
+            username='sales_emp1',
+            password_hash=generate_password_hash('salesemp1'),
+            full_name='Сергеев Сергей Сергеевич',
+            role='S',
+            manager_id=sales_manager.id,
+            department='Отдел продаж',
+            passport_data='Паспорт РФ 9012 345678 выдан 09.09.2028 ОВД г. Ростов-на-Дону',
+            email='sergeev.ss@sales.company.com'
+        )
+        sales_emp2 = User(
+            username='sales_emp2',
+            password_hash=generate_password_hash('salesemp2'),
+            full_name='Андреева Мария Ивановна',
+            role='S',
+            manager_id=sales_manager.id,
+            department='Отдел продаж',
+            passport_data='Паспорт РФ 0123 456789 выдан 10.10.2029 ОВД г. Уфа',
+            email='andreeva.mi@sales.company.com'
+        )
+        sales_emp3 = User(
+            username='sales_emp3',
+            password_hash=generate_password_hash('salesemp3'),
+            full_name='Федоров Федор Федорович',
+            role='S',
+            manager_id=sales_manager.id,
+            department='Отдел продаж',
+            passport_data='Паспорт РФ 1234 567890 выдан 11.11.2030 ОВД г. Красноярск',
+            email='fedorov.ff@sales.company.com'
+        )
+
+        # Сотрудники отдела проектов
+        projects_emp1 = User(
+            username='projects_emp1',
+            password_hash=generate_password_hash('projectsemp1'),
+            full_name='Григорьев Григорий Григорьевич',
+            role='S',
+            manager_id=projects_manager.id,
+            department='Отдел проектов',
+            passport_data='Паспорт РФ 2345 678901 выдан 12.12.2031 ОВД г. Воронеж',
+            email='grigorev.gg@projects.company.com'
+        )
+        projects_emp2 = User(
+            username='projects_emp2',
+            password_hash=generate_password_hash('projectsemp2'),
+            full_name='Дмитриева Ольга Дмитриевна',
+            role='S',
+            manager_id=projects_manager.id,
+            department='Отдел проектов',
+            passport_data='Паспорт РФ 3456 789012 выдан 01.01.2032 ОВД г. Волгоград',
+            email='dmitrieva.od@projects.company.com'
+        )
+        projects_emp3 = User(
+            username='projects_emp3',
+            password_hash=generate_password_hash('projectsemp3'),
+            full_name='Егоров Егор Егорович',
+            role='S',
+            manager_id=projects_manager.id,
+            department='Отдел проектов',
+            passport_data='Паспорт РФ 4567 890123 выдан 02.02.2033 ОВД г. Пермь',
+            email='egorov.ee@projects.company.com'
+        )
+
+        # ИТ сотрудники - инженеры
+        it_eng1 = User(
+            username='it_eng1',
+            password_hash=generate_password_hash('iteng1'),
+            full_name='Зайцев Захар Захарович',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 5678 901234 выдан 03.03.2034 ОВД г. Челябинск',
+            email='zaitsev.zz@it.company.com'
+        )
+        it_eng2 = User(
+            username='it_eng2',
+            password_hash=generate_password_hash('iteng2'),
+            full_name='Иванова Светлана Петровна',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 6789 012345 выдан 04.04.2035 ОВД г. Тюмень',
+            email='ivanova.sp@it.company.com'
+        )
+        it_eng3 = User(
+            username='it_eng3',
+            password_hash=generate_password_hash('iteng3'),
+            full_name='Ковалев Коваль Ковалев',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 7890 123456 выдан 05.05.2036 ОВД г. Ижевск',
+            email='kovalev.kk@it.company.com'
+        )
+
+        # ИТ сотрудники - программисты
+        it_prog1 = User(
+            username='it_prog1',
+            password_hash=generate_password_hash('itprog1'),
+            full_name='Лебедев Леонид Леонидович',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 8901 234567 выдан 06.06.2037 ОВД г. Барнаул',
+            email='lebedev.ll@it.company.com'
+        )
+        it_prog2 = User(
+            username='it_prog2',
+            password_hash=generate_password_hash('itprog2'),
+            full_name='Морозова Анна Александровна',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 9012 345678 выдан 07.07.2038 ОВД г. Владивосток',
+            email='morozova.aa@it.company.com'
+        )
+        it_prog3 = User(
+            username='it_prog3',
+            password_hash=generate_password_hash('itprog3'),
+            full_name='Новиков Новиков Новикович',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 0123 456789 выдан 08.08.2039 ОВД г. Ярославль',
+            email='novikov.nn@it.company.com'
+        )
+
+        # ИТ сотрудники - техподдержка
+        it_support1 = User(
+            username='it_support1',
+            password_hash=generate_password_hash('itsupport1'),
+            full_name='Орлов Олег Олегович',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 1234 567890 выдан 09.09.2040 ОВД г. Иркутск',
+            email='orlov.oo@it.company.com'
+        )
+        it_support2 = User(
+            username='it_support2',
+            password_hash=generate_password_hash('itsupport2'),
+            full_name='Павлова Павла Павловна',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 2345 678901 выдан 10.10.2041 ОВД г. Томск',
+            email='pavlova.pp@it.company.com'
+        )
+        it_support3 = User(
+            username='it_support3',
+            password_hash=generate_password_hash('itsupport3'),
+            full_name='Романов Роман Романович',
+            role='S',
+            manager_id=it_manager.id,
+            department='ИТ',
+            passport_data='Паспорт РФ 3456 789012 выдан 11.11.2042 ОВД г. Оренбург',
+            email='romanov.rr@it.company.com'
+        )
+
+        # Старый тестовый руководитель и сотрудник
+        old_manager = User(
             username='manager',
             password_hash=generate_password_hash('manager123'),
             full_name='Руководитель Отдела',
@@ -1130,16 +1372,19 @@ def init_db():
             manager_id=gr_manager.id,
             department='Отдел разработки'
         )
-        # Сотрудник
-        employee = User(
+        old_employee = User(
             username='employee',
             password_hash=generate_password_hash('employee123'),
             full_name='Сотрудник Тестовый',
             role='S',
-            manager_id=manager.id,
+            manager_id=old_manager.id,
             department='Отдел разработки'
         )
-        db_session.add_all([manager, employee])
+
+        all_employees = [sales_emp1, sales_emp2, sales_emp3, projects_emp1, projects_emp2, projects_emp3,
+                        it_eng1, it_eng2, it_eng3, it_prog1, it_prog2, it_prog3,
+                        it_support1, it_support2, it_support3, old_manager, old_employee]
+        db_session.add_all(all_employees)
         db_session.commit()
         print("Тестовые пользователи созданы")
 
@@ -1170,6 +1415,7 @@ def init_db():
     destinations = ['Москва', 'Санкт-Петербург', 'Новосибирск', 'Екатеринбург', 'Казань']
     purposes = ['Участие в конференции', 'Обучение', 'Консультации', 'Переговоры', 'Аудит']
 
+    # Проверим, есть л
     # Проверим, есть ли уже тестовые заявки с префиксом BT-2025, чтобы не дублировать
     existing_trips = BusinessTrip.query.filter(BusinessTrip.trip_number.like('BT-2025%')).count()
     if existing_trips > 0:
