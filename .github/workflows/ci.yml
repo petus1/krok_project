@@ -1,0 +1,63 @@
+name: Проверка Python и HTML
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  python:
+    name: Проверка и тесты Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонировать репозиторий
+        uses: actions/checkout@v4
+
+      - name: Установить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Установить зависимости
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Статический анализ для Python (flake8)
+        run: |
+          pip install flake8
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Статический анализ для Python (pylint)
+        run: |
+          pip install pylint
+          pylint $(find . -name "*.py" | xargs)
+
+      - name: Запустить тесты (pytest)
+        run: |
+          pip install pytest
+          if [ -d tests ]; then pytest tests; else pytest; fi
+
+  html:
+    name: Проверка HTML
+    runs-on: ubuntu-latest
+    steps:
+      - name: Клонировать репозиторий
+        uses: actions/checkout@v4
+
+      - name: Установить инструмент tidy для проверки html
+        run: sudo apt-get update && sudo apt-get install -y tidy
+
+      - name: Проверить все HTML-файлы
+        run: |
+          html_files=$(find . -type f -name "*.html")
+          if [ -z "$html_files" ]; then
+            echo "HTML-файлы не найдены."
+          else
+            for file in $html_files; do
+              echo "Проверка $file"
+              tidy -errors -quiet "$file"
+            done
+          fi
