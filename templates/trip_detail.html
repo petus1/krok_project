@@ -242,82 +242,190 @@
                     <div class="card mb-4">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5>Бронирование</h5>
-                            {% if user.role in ['A', 'TK'] %}
-                                <div>
-                                    {% if trip.booking_overrun_approved == False and trip.over_limit %}
-                                        <button class="btn btn-sm btn-warning"
-                                                onclick="approveBookingOverrun({{ trip.id }})">
-                                            Согласовать перерасход
-                                        </button>
-                                    {% endif %}
-                                    <button class="btn btn-sm btn-success" onclick="completeBooking({{ trip.id }})">
-                                        Бронирование выполнено
+                            {% if user.role in ['A', 'TK'] or (user.role == 'S' and trip.employee_id == user.id and not trip.booking_completed) %}
+                            <div>
+                                {% if trip.booking_overrun_approved == False and trip.over_limit %}
+                                    <button class="btn btn-sm btn-warning"
+                                            onclick="approveBookingOverrun({{ trip.id }})">
+                                        Согласовать перерасход
                                     </button>
-                                </div>
+                                {% endif %}
+                                <button class="btn btn-sm btn-success" onclick="completeBooking({{ trip.id }})">
+                                    Бронирование выполнено
+                                </button>
+                            </div>
                             {% endif %}
                         </div>
                         <div class="card-body">
-                            <h6>Транспорт к месту назначения</h6>
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <p><strong>Тип транспорта:</strong> {{ trip.transport_type or 'Не указан' }}</p>
-                                    <p><strong>Убытие из:</strong> {{ trip.departure_city or 'Не указано' }}</p>
-                                    <p><strong>Прибытие в:</strong> {{ trip.arrival_city or 'Не указано' }}</p>
-                                    {% if trip.departure_date_min %}
-                                        <p><strong>Не
-                                            раньше:</strong> {{ trip.departure_date_min.strftime('%d.%m.%Y %H:%M') }}
-                                        </p>
-                                    {% endif %}
-                                    {% if trip.arrival_date_max %}
-                                        <p><strong>Не
-                                            позже:</strong> {{ trip.arrival_date_max.strftime('%d.%m.%Y %H:%M') }}</p>
-                                    {% endif %}
-                                    <p><strong>Трансфер до:</strong> {{ trip.transfer_to or 'Не указан' }}</p>
+                            <!-- Форма редактирования -->
+                            <form id="bookingForm" onsubmit="saveBooking({{ trip.id }}); return false;">
+                                
+                                <!-- Транспорт к месту назначения -->
+                                <h6>Транспорт к месту назначения</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="transport_type" class="form-label">Тип транспорта</label>
+                                            <select class="form-control" id="transport_type" name="transport_type">
+                                                <option value="">Выберите тип транспорта</option>
+                                                <option value="Самолет" {% if trip.transport_type == 'Самолет' %}selected{% endif %}>Самолет</option>
+                                                <option value="Поезд" {% if trip.transport_type == 'Поезд' %}selected{% endif %}>Поезд</option>
+                                                <option value="Автомобиль" {% if trip.transport_type == 'Автомобиль' %}selected{% endif %}>Автомобиль</option>
+                                                <option value="Автобус" {% if trip.transport_type == 'Автобус' %}selected{% endif %}>Автобус</option>
+                                                <option value="Другое" {% if trip.transport_type == 'Другое' %}selected{% endif %}>Другое</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="departure_city" class="form-label">Убытие из</label>
+                                            <input type="text" class="form-control" id="departure_city" 
+                                                name="departure_city" value="{{ trip.departure_city or '' }}"
+                                                placeholder="Город отправления">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="arrival_city" class="form-label">Прибытие в</label>
+                                            <input type="text" class="form-control" id="arrival_city" 
+                                                name="arrival_city" value="{{ trip.arrival_city or '' }}"
+                                                placeholder="Город прибытия">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="departure_date_min" class="form-label">Не раньше (дата и время)</label>
+                                            <input type="datetime-local" class="form-control" id="departure_date_min" 
+                                                name="departure_date_min" 
+                                                value="{% if trip.departure_date_min %}{{ trip.departure_date_min.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="arrival_date_max" class="form-label">Не позже (дата и время)</label>
+                                            <input type="datetime-local" class="form-control" id="arrival_date_max" 
+                                                name="arrival_date_max" 
+                                                value="{% if trip.arrival_date_max %}{{ trip.arrival_date_max.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="transfer_to" class="form-label">Трансфер до</label>
+                                            <input type="text" class="form-control" id="transfer_to" 
+                                                name="transfer_to" value="{{ trip.transfer_to or '' }}"
+                                                placeholder="Например: аэропорт Шереметьево, терминал B">
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <h6>Транспорт обратно</h6>
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <p><strong>Тип транспорта:</strong> {{ trip.transport_type_return or 'Не указан' }}
-                                    </p>
-                                    <p><strong>Убытие из:</strong> {{ trip.departure_city_return or 'Не указано' }}</p>
-                                    <p><strong>Прибытие в:</strong> {{ trip.arrival_city_return or 'Не указано' }}</p>
-                                    {% if trip.departure_date_min_return %}
-                                        <p><strong>Не
-                                            раньше:</strong> {{ trip.departure_date_min_return.strftime('%d.%m.%Y %H:%M') }}
-                                        </p>
-                                    {% endif %}
-                                    {% if trip.arrival_date_max_return %}
-                                        <p><strong>Не
-                                            позже:</strong> {{ trip.arrival_date_max_return.strftime('%d.%m.%Y %H:%M') }}
-                                        </p>
-                                    {% endif %}
-                                    <p><strong>Трансфер до:</strong> {{ trip.transfer_from or 'Не указан' }}</p>
+                                <!-- Транспорт обратно -->
+                                <h6>Транспорт обратно</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="transport_type_return" class="form-label">Тип транспорта обратно</label>
+                                            <select class="form-control" id="transport_type_return" name="transport_type_return">
+                                                <option value="">Выберите тип транспорта</option>
+                                                <option value="Самолет" {% if trip.transport_type_return == 'Самолет' %}selected{% endif %}>Самолет</option>
+                                                <option value="Поезд" {% if trip.transport_type_return == 'Поезд' %}selected{% endif %}>Поезд</option>
+                                                <option value="Автомобиль" {% if trip.transport_type_return == 'Автомобиль' %}selected{% endif %}>Автомобиль</option>
+                                                <option value="Автобус" {% if trip.transport_type_return == 'Автобус' %}selected{% endif %}>Автобус</option>
+                                                <option value="Другое" {% if trip.transport_type_return == 'Другое' %}selected{% endif %}>Другое</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="departure_city_return" class="form-label">Убытие из</label>
+                                            <input type="text" class="form-control" id="departure_city_return" 
+                                                name="departure_city_return" value="{{ trip.departure_city_return or '' }}"
+                                                placeholder="Город отправления">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="arrival_city_return" class="form-label">Прибытие в</label>
+                                            <input type="text" class="form-control" id="arrival_city_return" 
+                                                name="arrival_city_return" value="{{ trip.arrival_city_return or '' }}"
+                                                placeholder="Город прибытия">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="departure_date_min_return" class="form-label">Не раньше (дата и время)</label>
+                                            <input type="datetime-local" class="form-control" id="departure_date_min_return" 
+                                                name="departure_date_min_return" 
+                                                value="{% if trip.departure_date_min_return %}{{ trip.departure_date_min_return.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="arrival_date_max_return" class="form-label">Не позже (дата и время)</label>
+                                            <input type="datetime-local" class="form-control" id="arrival_date_max_return" 
+                                                name="arrival_date_max_return" 
+                                                value="{% if trip.arrival_date_max_return %}{{ trip.arrival_date_max_return.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="transfer_from" class="form-label">Трансфер до</label>
+                                            <input type="text" class="form-control" id="transfer_from" 
+                                                name="transfer_from" value="{{ trip.transfer_from or '' }}"
+                                                placeholder="Например: отель Марриотт">
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <h6>Проживание</h6>
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <p><strong>Отель:</strong> {{ trip.hotel_name or 'Не указан' }}</p>
-                                    {% if trip.check_in %}
-                                        <p><strong>Заезд:</strong> {{ trip.check_in.strftime('%d.%m.%Y') }}</p>
-                                    {% endif %}
-                                    {% if trip.check_out %}
-                                        <p><strong>Выезд:</strong> {{ trip.check_out.strftime('%d.%m.%Y') }}</p>
-                                    {% endif %}
-                                    <p><strong>Количество мест:</strong> {{ trip.hotel_rooms or 'Не указано' }}</p>
+                                <!-- Проживание -->
+                                <h6>Проживание</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="hotel_name" class="form-label">Отель</label>
+                                            <input type="text" class="form-control" id="hotel_name" 
+                                                name="hotel_name" value="{{ trip.hotel_name or '' }}"
+                                                placeholder="Название отеля">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="check_in" class="form-label">Дата заезда</label>
+                                            <input type="date" class="form-control" id="check_in" 
+                                                name="check_in" 
+                                                value="{% if trip.check_in %}{{ trip.check_in.strftime('%Y-%m-%d') }}{% endif %}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="check_out" class="form-label">Дата выезда</label>
+                                            <input type="date" class="form-control" id="check_out" 
+                                                name="check_out" 
+                                                value="{% if trip.check_out %}{{ trip.check_out.strftime('%Y-%m-%d') }}{% endif %}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="hotel_rooms" class="form-label">Количество номеров/мест</label>
+                                            <input type="number" class="form-control" id="hotel_rooms" 
+                                                name="hotel_rooms" value="{{ trip.hotel_rooms or '' }}" min="1"
+                                                placeholder="Например: 1">
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <h6>Контакты</h6>
-                            <p><strong>Телефон:</strong> {{ trip.contact_phone or 'Не указан' }}</p>
+                                <!-- Контакты -->
+                                <h6>Контакты</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="contact_phone" class="form-label">Контактный телефон</label>
+                                            <input type="text" class="form-control" id="contact_phone" 
+                                                name="contact_phone" value="{{ trip.contact_phone or '' }}"
+                                                placeholder="+7 (XXX) XXX-XX-XX">
+                                        </div>
+                                    </div>
+                                </div>
 
-                            {% if trip.booking_notes %}
+                                <!-- Дополнительная информация -->
                                 <h6>Дополнительная информация</h6>
-                                <p>{{ trip.booking_notes }}</p>
-                            {% endif %}
+                                <div class="mb-3">
+                                    <label for="booking_notes" class="form-label">Дополнительные пожелания/комментарии</label>
+                                    <textarea class="form-control" id="booking_notes" name="booking_notes" 
+                                            rows="3" placeholder="Любая дополнительная информация для travel-координатора">{{ trip.booking_notes or '' }}</textarea>
+                                </div>
+
+                                <!-- Кнопки сохранения -->
+                                {% if user.role in ['A', 'TK'] or (user.role == 'S' and trip.employee_id == user.id and not trip.booking_completed) %}
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                                    <button type="submit" class="btn btn-sm btn-custom">
+                                        Сохранить изменения
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </form>
+                            
+                            <!-- Блок с результатом сохранения -->
+                            <div id="bookingSaveResult" class="mt-3"></div>
                         </div>
                     </div>
                 </div>
@@ -372,87 +480,155 @@
         </div>
 
         <!-- Вкладка "Отчёт сотрудника" -->
-        <div class="tab-pane fade" id="report" role="tabpanel">
-            <div class="row mt-3">
-                <div class="col-md-12">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5>Отчёт сотрудника</h5>
+    <div class="tab-pane fade" id="report" role="tabpanel">
+        <div class="row mt-3">
+            <div class="col-md-12">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Отчёт сотрудника</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6>Геолокация</h6>
+                            {% if trip.geo_location %}
+                                <p><strong>Геопозиция установлена:</strong> {{ trip.geo_location }}</p>
+                                {% if trip.geo_location_date %}
+                                    <p><strong>Дата
+                                        установки:</strong> {{ trip.geo_location_date.strftime('%d.%m.%Y %H:%M') }}
+                                    </p>
+                                {% endif %}
+                            {% elif user.role == 'S' and trip.employee_id == user.id %}
+                                <button class="btn btn-primary" onclick="setGeoLocation({{ trip.id }})">
+                                    Фиксировать геопозицию
+                                </button>
+                            {% else %}
+                                <p>Геопозиция не установлена</p>
+                            {% endif %}
                         </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <h6>Геолокация</h6>
-                                {% if trip.geo_location %}
-                                    <p><strong>Геопозиция установлена:</strong> {{ trip.geo_location }}</p>
-                                    {% if trip.geo_location_date %}
-                                        <p><strong>Дата
-                                            установки:</strong> {{ trip.geo_location_date.strftime('%d.%m.%Y %H:%M') }}
-                                        </p>
-                                    {% endif %}
-                                {% elif user.role == 'S' and trip.employee_id == user.id %}
-                                    <button class="btn btn-primary" onclick="setGeoLocation({{ trip.id }})">
-                                        Фиксировать геопозицию
+
+                        <div class="mb-3">
+                            <h6>Расходы</h6>
+                            {% if trip.geo_location or user.role in ['A', 'R', 'GR', 'BU'] %}
+                                <p><strong>Фактические расходы:</strong> {{ "%.2f"|format(trip.actual_costs or 0) }}
+                                    руб.</p>
+                                {% if trip.over_limit and not trip.report_overrun_approved and user.role in ['R', 'GR'] %}
+                                    <button class="btn btn-sm btn-warning"
+                                            onclick="approveReportOverrun({{ trip.id }})">
+                                        Согласовать перерасход
                                     </button>
-                                {% else %}
-                                    <p>Геопозиция не установлена</p>
                                 {% endif %}
-                            </div>
+                            {% else %}
+                                <p>Доступ к заполнению расходов открывается после установки геолокации</p>
+                            {% endif %}
+                        </div>
 
-                            <div class="mb-3">
-                                <h6>Расходы</h6>
-                                {% if trip.geo_location or user.role in ['A', 'R', 'GR', 'BU'] %}
-                                    <p><strong>Фактические расходы:</strong> {{ "%.2f"|format(trip.actual_costs or 0) }}
-                                        руб.</p>
-                                    {% if trip.over_limit and not trip.report_overrun_approved and user.role in ['R', 'GR'] %}
-                                        <button class="btn btn-sm btn-warning"
-                                                onclick="approveReportOverrun({{ trip.id }})">
-                                            Согласовать перерасход
-                                        </button>
-                                    {% endif %}
-                                {% else %}
-                                    <p>Доступ к заполнению расходов открывается после установки геолокации</p>
-                                {% endif %}
-                            </div>
+                        <div class="mb-3">
+                            <h6>Статусы отчета</h6>
+                            {% if user.role == 'S' and trip.employee_id == user.id %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="reportPrepared"
+                                        {% if trip.report_prepared %}checked{% endif %}
+                                        onchange="toggleReportPrepared({{ trip.id }}, this.checked)">
+                                    <label class="form-check-label" for="reportPrepared">
+                                        Отчёт подготовлен
+                                    </label>
+                                </div>
+                            {% endif %}
 
-                            <div class="mb-3">
-                                <h6>Статусы отчета</h6>
-                                {% if user.role == 'S' and trip.employee_id == user.id %}
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" id="reportPrepared"
-                                               {% if trip.report_prepared %}checked{% endif %}
-                                               onchange="toggleReportPrepared({{ trip.id }}, this.checked)">
-                                        <label class="form-check-label" for="reportPrepared">
-                                            Отчёт подготовлен
-                                        </label>
+                            {% if user.role in ['R', 'GR'] %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="reportReviewed"
+                                        {% if trip.report_reviewed %}checked{% endif %}
+                                        onchange="toggleReportReviewed({{ trip.id }}, this.checked)">
+                                    <label class="form-check-label" for="reportReviewed">
+                                        Отчёт проверен
+                                    </label>
+                                </div>
+                            {% endif %}
+
+                            {% if user.role in ['A', 'BU'] %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="tripClosed"
+                                        {% if trip.trip_closed %}checked{% endif %}
+                                        onchange="toggleTripClosed({{ trip.id }}, this.checked)">
+                                    <label class="form-check-label" for="tripClosed">
+                                        Командировка закрыта
+                                    </label>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <h6>Документы командировки</h6>
+                            
+                            <!-- Форма загрузки документа -->
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Загрузить новый документ</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="uploadForm" enctype="multipart/form-data">
+                                        <div class="row">
+                                            <div class="col-md-4 mb-3">
+                                                <label for="fileType" class="form-label">Тип документа</label>
+                                                <select class="form-select" id="fileType" name="file_type" required>
+                                                    <option value="ticket">Билет/Бронь транспорта</option>
+                                                    <option value="hotel">Бронь отеля</option>
+                                                    <option value="receipt">Чек/Квитанция</option>
+                                                    <option value="report">Отчет о командировке</option>
+                                                    <option value="other">Другой документ</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-8 mb-3">
+                                                <label for="fileDescription" class="form-label">Описание</label>
+                                                <input type="text" class="form-control" id="fileDescription" 
+                                                    name="description" placeholder="Краткое описание документа">
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-8 mb-3">
+                                                <label for="fileInput" class="form-label">Выберите файл</label>
+                                                <input class="form-control" type="file" id="fileInput" name="file" 
+                                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx" required>
+                                                <div class="form-text">
+                                                    Поддерживаемые форматы: PDF, PNG, JPG, DOC, DOCX, XLS, XLSX. Максимальный размер: 10MB
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 d-flex align-items-end mb-3">
+                                                <button type="button" class="btn btn-success w-100" 
+                                                        onclick="uploadDocument({{ trip.id }})">
+                                                    Загрузить документ
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                    <div id="uploadProgress" class="progress d-none mt-2" style="height: 20px;">
+                                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                            role="progressbar" style="width: 0%">0%</div>
                                     </div>
-                                {% endif %}
-
-                                {% if user.role in ['R', 'GR'] %}
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" id="reportReviewed"
-                                               {% if trip.report_reviewed %}checked{% endif %}
-                                               onchange="toggleReportReviewed({{ trip.id }}, this.checked)">
-                                        <label class="form-check-label" for="reportReviewed">
-                                            Отчёт проверен
-                                        </label>
-                                    </div>
-                                {% endif %}
-
-                                {% if user.role in ['A', 'BU'] %}
-                                    <div class="form-check mb-2">
-                                        <input class="form-check-input" type="checkbox" id="tripClosed"
-                                               {% if trip.trip_closed %}checked{% endif %}
-                                               onchange="toggleTripClosed({{ trip.id }}, this.checked)">
-                                        <label class="form-check-label" for="tripClosed">
-                                            Командировка закрыта
-                                        </label>
-                                    </div>
-                                {% endif %}
+                                    <div id="uploadMessage" class="mt-2"></div>
+                                </div>
                             </div>
-
-                            <div class="mb-3">
-                                <h6>Документы</h6>
-                                <p>Функционал прикрепления документов будет реализован в следующей версии</p>
+                            
+                            <!-- Список документов -->
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Прикрепленные документы</h6>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="loadDocuments({{ trip.id }})">
+                                        Обновить список
+                                    </button>
+                                </div>
+                                <div class="card-body">
+                                    <div id="documentsList">
+                                        <!-- Документы будут загружены через AJAX -->
+                                        <div class="text-center py-3">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Загрузка...</span>
+                                            </div>
+                                            <p class="mt-2">Загрузка документов...</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -664,5 +840,343 @@
                 if (d.success) location.reload();
             });
         }
+        // Функции для работы с документами
+        function uploadDocument(tripId) {
+            const fileInput = document.getElementById('fileInput');
+            const fileType = document.getElementById('fileType').value;
+            const description = document.getElementById('fileDescription').value;
+            
+            if (!fileInput.files[0]) {
+                showUploadMessage('Пожалуйста, выберите файл', 'danger');
+                return;
+            }
+            
+            // Проверка размера файла (10MB)
+            if (fileInput.files[0].size > 10 * 1024 * 1024) {
+                showUploadMessage('Размер файла превышает 10MB', 'danger');
+                return;
+            }
+            
+            // Показываем прогресс-бар
+            const uploadProgress = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('progressBar');
+            uploadProgress.classList.remove('d-none');
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('file_type', fileType);
+            formData.append('description', description);
+            
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percentComplete + '%';
+                    progressBar.textContent = Math.round(percentComplete) + '%';
+                }
+            });
+            
+            xhr.onload = function() {
+                uploadProgress.classList.add('d-none');
+                
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        showUploadMessage('Документ успешно загружен', 'success');
+                        loadDocuments(tripId);
+                        // Очищаем форму
+                        document.getElementById('fileInput').value = '';
+                        document.getElementById('fileDescription').value = '';
+                    } else {
+                        showUploadMessage('Ошибка: ' + response.error, 'danger');
+                    }
+                } catch (e) {
+                    showUploadMessage('Ошибка при обработке ответа сервера', 'danger');
+                }
+            };
+            
+            xhr.onerror = function() {
+                uploadProgress.classList.add('d-none');
+                showUploadMessage('Ошибка сети при загрузке файла', 'danger');
+            };
+            
+            xhr.open('POST', `/api/trip/${tripId}/upload_document`);
+            xhr.send(formData);
+        }
+
+        function showUploadMessage(message, type) {
+            const messageDiv = document.getElementById('uploadMessage');
+            messageDiv.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+            
+            // Автоматически скрываем через 5 секунд
+            setTimeout(() => {
+                const alert = messageDiv.querySelector('.alert');
+                if (alert) {
+                    const bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                }
+            }, 5000);
+        }
+
+        function loadDocuments(tripId) {
+            const documentsList = document.getElementById('documentsList');
+            documentsList.innerHTML = `
+                <div class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p class="mt-2">Загрузка документов...</p>
+                </div>
+            `;
+            
+            fetch(`/api/trip/${tripId}/documents`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderDocuments(data.documents, tripId);
+                    } else {
+                        documentsList.innerHTML = `
+                            <div class="alert alert-danger">
+                                Ошибка при загрузке документов: ${data.error}
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    documentsList.innerHTML = `
+                        <div class="alert alert-danger">
+                            Ошибка сети: ${error}
+                        </div>
+                    `;
+                });
+        }
+
+        function renderDocuments(documentsByType, tripId) {
+            const documentsList = document.getElementById('documentsList');
+            
+            if (!documentsByType || Object.values(documentsByType).flat().length === 0) {
+                documentsList.innerHTML = `
+                    <div class="alert alert-info">
+                        Документов пока нет. Загрузите первый документ.
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            // Определяем русские названия для типов документов
+            const typeNames = {
+                'ticket': 'Билеты и брони транспорта',
+                'hotel': 'Документы отеля',
+                'receipt': 'Чеки и квитанции',
+                'report': 'Отчеты',
+                'other': 'Другие документы'
+            };
+            
+            // Для каждого типа документов создаем свою секцию
+            Object.entries(documentsByType).forEach(([type, documents]) => {
+            if (documents.length > 0) {
+                html += `
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">${typeNames[type] || type} (${documents.length})</h6>
+                        <div class="row">
+                `;
+                
+                documents.forEach(doc => {
+                    // Определяем иконку в зависимости от типа файла
+                    let icon = 'fa-file';
+                    if (doc.filename.match(/\.(pdf)$/i)) icon = 'fa-file-pdf';
+                    else if (doc.filename.match(/\.(jpg|jpeg|png|gif)$/i)) icon = 'fa-file-image';
+                    else if (doc.filename.match(/\.(doc|docx)$/i)) icon = 'fa-file-word';
+                    else if (doc.filename.match(/\.(xls|xlsx)$/i)) icon = 'fa-file-excel';
+                    
+                    html += `
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <i class="fas ${icon} text-primary me-2"></i>
+                                            <strong>${doc.filename}</strong>
+                                        </div>
+                                        ${doc.can_delete ? `
+                                            <button class="btn btn-sm btn-outline-danger" 
+                                                    onclick="deleteDocument(${doc.id}, ${tripId})"
+                                                    title="Удалить документ">
+                                                <i class="fas fa-trash me-1"></i> Удалить
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                    ${doc.description ? `<p class="small text-muted mt-2 mb-1">${doc.description}</p>` : ''}
+                                    <div class="small text-muted">
+                                        Загружен: ${doc.uploaded_by} (${doc.upload_date})
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <div class="d-flex justify-content-between">
+                                        <a href="${doc.file_path}" 
+                                        class="btn btn-sm btn-outline-primary"
+                                        target="_blank">
+                                            <i class="fas fa-eye me-1"></i> Просмотреть
+                                        </a>
+                                        <a href="${doc.file_path}" 
+                                        class="btn btn-sm btn-outline-success"
+                                        download="${doc.filename}">
+                                            <i class="fas fa-download me-1"></i> Скачать
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+        });
+            
+            documentsList.innerHTML = html;
+        }
+
+        function deleteDocument(documentId, tripId) {
+            if (!confirm('Вы уверены, что хотите удалить этот документ?')) {
+                return;
+            }
+            
+            fetch(`/api/document/${documentId}/delete`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadDocuments(tripId);
+                    showUploadMessage('Документ успешно удален', 'success');
+                } else {
+                    showUploadMessage('Ошибка при удалении: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showUploadMessage('Ошибка сети: ' + error, 'danger');
+            });
+        }
+
+        // Загружаем документы при открытии страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Получаем trip_id из контекста (нужно добавить в шаблон)
+            const tripId = {{ trip.id }};
+            
+            // Загружаем документы при загрузке страницы
+            loadDocuments(tripId);
+            
+            // Загружаем документы при переключении на вкладку "Отчет сотрудника"
+            const reportTab = document.getElementById('report-tab');
+            if (reportTab) {
+                reportTab.addEventListener('shown.bs.tab', function() {
+                    loadDocuments(tripId);
+                });
+            }
+        });
+
+        // Функция для сохранения данных бронирования
+        function saveBooking(tripId) {
+            // Собираем данные из формы
+            const formData = {
+                transport_type: document.getElementById('transport_type').value,
+                departure_city: document.getElementById('departure_city').value,
+                arrival_city: document.getElementById('arrival_city').value,
+                departure_date_min: document.getElementById('departure_date_min').value,
+                arrival_date_max: document.getElementById('arrival_date_max').value,
+                transfer_to: document.getElementById('transfer_to').value,
+                transport_type_return: document.getElementById('transport_type_return').value,
+                departure_city_return: document.getElementById('departure_city_return').value,
+                arrival_city_return: document.getElementById('arrival_city_return').value,
+                departure_date_min_return: document.getElementById('departure_date_min_return').value,
+                arrival_date_max_return: document.getElementById('arrival_date_max_return').value,
+                transfer_from: document.getElementById('transfer_from').value,
+                hotel_name: document.getElementById('hotel_name').value,
+                check_in: document.getElementById('check_in').value,
+                check_out: document.getElementById('check_out').value,
+                hotel_rooms: document.getElementById('hotel_rooms').value,
+                contact_phone: document.getElementById('contact_phone').value,
+                booking_notes: document.getElementById('booking_notes').value
+            };
+            
+            // Показываем сообщение о сохранении
+            const resultDiv = document.getElementById('bookingSaveResult');
+            resultDiv.innerHTML = `
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    Сохранение данных...
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            // Отправляем данные на сервер
+            fetch(`/api/trip/${tripId}/update_booking`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Данные успешно сохранены!
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                    
+                    // Обновляем статус на странице, если изменился
+                    if (data.booking_completed !== undefined) {
+                        location.reload(); // Перезагружаем страницу для обновления статусов
+                    }
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Ошибка при сохранении: ${data.error || 'Неизвестная ошибка'}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Ошибка сети: ${error}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                `;
+            });
+        }
     </script>
+    <style>
+        .btn-custom {
+            background-color: #00C573 !important;
+            border-color: #00C573 !important;
+            color: white !important;
+        }
+        .btn-custom:hover {
+            background-color: #00a864 !important; /* немного темнее при наведении */
+            border-color: #00a864 !important;
+        }
+    </style>
 {% endblock %}

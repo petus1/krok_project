@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from functools import wraps
 import os
 from datetime import datetime, timezone, timedelta
@@ -22,6 +23,18 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 db_session = db.session
+
+# Конфигурация для загрузки файлов
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'doc', 'docx', 'xls', 'xlsx'}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 25MB
+
+# Создаем папку для загрузок, если её нет
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # Модели базы данных
 class User(db.Model):
@@ -111,6 +124,21 @@ class BusinessTrip(db.Model):
     procurement_costs = db.Column(db.Float)
     procurement_details = db.Column(db.Text)  # Детализация задания к закупке
     procurement_report = db.Column(db.Text)  # Отчет по закупке материалов
+
+
+class Document(db.Model):
+    __tablename__ = 'documents'
+    id = db.Column(db.Integer, primary_key=True)
+    trip_id = db.Column(db.Integer, db.ForeignKey('business_trip.id'), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_type = db.Column(db.String(50))  # Тип файла: ticket, hotel, report, other
+    description = db.Column(db.Text)
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    upload_date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    
+    trip = db.relationship('BusinessTrip', backref='documents')
+    uploaded_by = db.relationship('User')
 
 
 # Декораторы для проверки прав доступа
@@ -788,6 +816,200 @@ def send_for_approval(trip_id):
         db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/trip/<int:trip_id>/upload_document', methods=['POST'])
+@login_required
+def upload_document(trip_id):
+    try:
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+        
+        # Проверка прав доступа
+        if user.role == 'S' and trip.employee_id != user.id:
+            return jsonify({'success': False, 'error': 'Вы можете загружать документы только для своих командировок'})
+        elif user.role == 'R' and trip.employee_id != user.id and trip.employee_id not in [sub.id for sub in user.subordinates]:
+            return jsonify({'success': False, 'error': 'Доступ запрещен'})
+        elif user.role == 'Z' and not trip.procurement_needed:
+            return jsonify({'success': False, 'error': 'Доступ запрещен'})
+        
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'Файл не найден'})
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Файл не выбран'})
+        
+        if file and allowed_file(file.filename):
+            # Проверяем размер файла
+            file.seek(0, os.SEEK_END)
+            file_length = file.tell()
+            file.seek(0)
+            
+            if file_length > MAX_FILE_SIZE:
+                return jsonify({'success': False, 'error': 'Размер файла превышает 10MB'})
+            
+            # Создаем уникальное имя файла
+            filename = secure_filename(file.filename)
+            unique_filename = f"{trip_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{filename}"
+            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+            
+            # Сохраняем файл
+            file.save(file_path)
+            
+            # Создаем запись в базе данных
+            document = Document(
+                trip_id=trip_id,
+                filename=filename,
+                file_path=f"/static/uploads/{unique_filename}",
+                file_type=request.form.get('file_type', 'other'),
+                description=request.form.get('description', ''),
+                uploaded_by_id=user.id
+            )
+            
+            db_session.add(document)
+            db_session.commit()
+            
+            # Если тип файла - отчет, обновляем статус отчета
+            if request.form.get('file_type') == 'report' and user.role == 'S':
+                trip.report_prepared = True
+            
+            db_session.commit()
+            
+            return jsonify({
+                'success': True,
+                'document': {
+                    'id': document.id,
+                    'filename': document.filename,
+                    'file_path': document.file_path,
+                    'file_type': document.file_type,
+                    'description': document.description,
+                    'upload_date': document.upload_date.strftime('%d.%m.%Y %H:%M'),
+                    'uploaded_by': document.uploaded_by.full_name
+                }
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Недопустимый формат файла'})
+            
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/document/<int:document_id>/delete', methods=['POST'])
+@login_required
+def delete_document(document_id):
+    try:
+        # Используем современный синтаксис
+        document = db_session.get(Document, document_id)
+        if not document:
+            return jsonify({'success': False, 'error': 'Документ не найден'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+        
+        # Проверка прав доступа
+        trip = document.trip
+        can_delete = False
+        
+        if user.role in ['A', 'B', 'BU', 'GR']:  # Администраторы и выше
+            can_delete = True
+        elif user.role == 'R':  # Руководитель может удалять документы своих подчиненных
+            subordinate_ids = [sub.id for sub in user.subordinates]
+            if trip.employee_id == user.id or trip.employee_id in subordinate_ids:
+                can_delete = True
+        elif user.role == 'S' and trip.employee_id == user.id:  # Сотрудник может удалять свои документы
+            can_delete = True
+        elif user.id == document.uploaded_by_id:  # Пользователь может удалять свои собственные документы
+            can_delete = True
+        
+        if not can_delete:
+            return jsonify({'success': False, 'error': 'Недостаточно прав для удаления документа'})
+        
+        # Удаляем файл с диска
+        try:
+            if os.path.exists(document.file_path.replace('/static/', '')):
+                os.remove(document.file_path.replace('/static/', ''))
+        except Exception as e:
+            print(f"Ошибка при удалении файла: {str(e)}")
+        
+        # Удаляем запись из базы данных
+        db_session.delete(document)
+        db_session.commit()
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/trip/<int:trip_id>/documents')
+@login_required
+def get_trip_documents(trip_id):
+    try:
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+        
+        # Проверка прав доступа
+        if user.role == 'S' and trip.employee_id != user.id:
+            return jsonify({'success': False, 'error': 'Доступ запрещен'})
+        elif user.role == 'R' and trip.employee_id != user.id and trip.employee_id not in [sub.id for sub in user.subordinates]:
+            return jsonify({'success': False, 'error': 'Доступ запрещен'})
+        elif user.role == 'Z' and not trip.procurement_needed:
+            return jsonify({'success': False, 'error': 'Доступ запрещен'})
+        
+        # Получаем документы и группируем по типам
+        documents = Document.query.filter_by(trip_id=trip_id).order_by(Document.upload_date.desc()).all()
+        
+        documents_by_type = {
+            'ticket': [],  # Билеты
+            'hotel': [],   # Документы отеля
+            'report': [],  # Отчеты
+            'receipt': [], # Чеки
+            'other': []    # Другие документы
+        }
+        
+        for doc in documents:
+            doc_dict = {
+                'id': doc.id,
+                'filename': doc.filename,
+                'file_path': doc.file_path,
+                'file_type': doc.file_type or 'other',
+                'description': doc.description,
+                'upload_date': doc.upload_date.strftime('%d.%m.%Y %H:%M'),
+                'uploaded_by': doc.uploaded_by.full_name,
+                'can_delete': (
+                    user.role in ['A', 'B', 'BU', 'GR'] or
+                    user.role == 'R' and (trip.employee_id == user.id or trip.employee_id in [sub.id for sub in user.subordinates]) or
+                    user.id == doc.uploaded_by_id or
+                    user.role == 'S' and trip.employee_id == user.id
+                )
+            }
+            
+            if doc.file_type in documents_by_type:
+                documents_by_type[doc.file_type].append(doc_dict)
+            else:
+                documents_by_type['other'].append(doc_dict)
+        
+        return jsonify({
+            'success': True,
+            'documents': documents_by_type,
+            'total': len(documents)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/api/trip/<int:trip_id>/deactivate', methods=['POST'])
 @login_required
@@ -1064,6 +1286,102 @@ def toggle_report_reviewed(trip_id):
         trip.report_reviewed = request.json.get('reviewed', False)
         db_session.commit()
         return jsonify({'success': True})
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/trip/<int:trip_id>/update_booking', methods=['POST'])
+@login_required
+def update_booking(trip_id):
+    try:
+        # Используем современный синтаксис
+        trip = db_session.get(BusinessTrip, trip_id)
+        if not trip:
+            return jsonify({'success': False, 'error': 'Заявка не найдена'})
+            
+        user = db_session.get(User, session['user_id'])
+        if not user:
+            return jsonify({'success': False, 'error': 'Пользователь не найден'})
+        
+        # Проверка прав доступа
+        can_edit = False
+        
+        # Администраторы и travel-координаторы всегда могут редактировать
+        if user.role in ['A', 'TK']:
+            can_edit = True
+        # Сотрудник может редактировать свою заявку, пока бронирование не выполнено
+        elif user.role == 'S' and trip.employee_id == user.id and not trip.booking_completed:
+            can_edit = True
+        
+        if not can_edit:
+            return jsonify({'success': False, 'error': 'Недостаточно прав для редактирования бронирования'})
+        
+        data = request.json
+        
+        # Обновляем поля бронирования
+        if 'transport_type' in data:
+            trip.transport_type = data['transport_type']
+        if 'departure_city' in data:
+            trip.departure_city = data['departure_city']
+        if 'arrival_city' in data:
+            trip.arrival_city = data['arrival_city']
+        if 'departure_date_min' in data and data['departure_date_min']:
+            try:
+                trip.departure_date_min = datetime.fromisoformat(data['departure_date_min'].replace('Z', '+00:00'))
+            except ValueError:
+                trip.departure_date_min = datetime.strptime(data['departure_date_min'], '%Y-%m-%dT%H:%M')
+        if 'arrival_date_max' in data and data['arrival_date_max']:
+            try:
+                trip.arrival_date_max = datetime.fromisoformat(data['arrival_date_max'].replace('Z', '+00:00'))
+            except ValueError:
+                trip.arrival_date_max = datetime.strptime(data['arrival_date_max'], '%Y-%m-%dT%H:%M')
+        if 'transfer_to' in data:
+            trip.transfer_to = data['transfer_to']
+        if 'transport_type_return' in data:
+            trip.transport_type_return = data['transport_type_return']
+        if 'departure_city_return' in data:
+            trip.departure_city_return = data['departure_city_return']
+        if 'arrival_city_return' in data:
+            trip.arrival_city_return = data['arrival_city_return']
+        if 'departure_date_min_return' in data and data['departure_date_min_return']:
+            try:
+                trip.departure_date_min_return = datetime.fromisoformat(data['departure_date_min_return'].replace('Z', '+00:00'))
+            except ValueError:
+                trip.departure_date_min_return = datetime.strptime(data['departure_date_min_return'], '%Y-%m-%dT%H:%M')
+        if 'arrival_date_max_return' in data and data['arrival_date_max_return']:
+            try:
+                trip.arrival_date_max_return = datetime.fromisoformat(data['arrival_date_max_return'].replace('Z', '+00:00'))
+            except ValueError:
+                trip.arrival_date_max_return = datetime.strptime(data['arrival_date_max_return'], '%Y-%m-%dT%H:%M')
+        if 'transfer_from' in data:
+            trip.transfer_from = data['transfer_from']
+        if 'hotel_name' in data:
+            trip.hotel_name = data['hotel_name']
+        if 'check_in' in data and data['check_in']:
+            try:
+                trip.check_in = datetime.fromisoformat(data['check_in'])
+            except ValueError:
+                trip.check_in = datetime.strptime(data['check_in'], '%Y-%m-%d')
+        if 'check_out' in data and data['check_out']:
+            try:
+                trip.check_out = datetime.fromisoformat(data['check_out'])
+            except ValueError:
+                trip.check_out = datetime.strptime(data['check_out'], '%Y-%m-%d')
+        if 'hotel_rooms' in data:
+            trip.hotel_rooms = int(data['hotel_rooms']) if data['hotel_rooms'] else None
+        if 'contact_phone' in data:
+            trip.contact_phone = data['contact_phone']
+        if 'booking_notes' in data:
+            trip.booking_notes = data['booking_notes']
+        
+        db_session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Данные бронирования обновлены',
+            'booking_completed': trip.booking_completed
+        })
+        
     except Exception as e:
         db_session.rollback()
         return jsonify({'success': False, 'error': str(e)})

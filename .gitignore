@@ -3,3 +3,4 @@ __pycache__
 documents/
 .idea/
 .env
+static/uploads/
