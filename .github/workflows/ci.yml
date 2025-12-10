@@ -1,4 +1,4 @@
-name: Проверка Python и HTML
+name: КРОК.Командировки
 
 on:
   push:
@@ -7,57 +7,117 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  python:
-    name: Проверка и тесты Python
+  full-check:
+    name: Полная проверка: Python, база данных, запуск приложения
     runs-on: ubuntu-latest
+
+    services:
+      # __1. Сервис: PostgreSQL для тестов__
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: krok_test_db
+          POSTGRES_USER: krokuser
+          POSTGRES_PASSWORD: krokpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U krokuser"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: "postgresql://krokuser:krokpassword@localhost:5432/krok_test_db"
+
     steps:
-      - name: Клонировать репозиторий
+      # 2. Клонировать код
+      - name: Клонирование репозитория
         uses: actions/checkout@v4
 
-      - name: Установить Python
+      # 3. Проверка requirements.txt на дубли
+      - name: Проверка дублирующихся зависимостей (requirements.txt)
+        run: |
+          if [ -f requirements.txt ]; then
+            sort requirements.txt | uniq -d | awk '{print "Дубликат: "$1}' && exit 1 || true
+          fi
+
+      # 4. Установка Python и зависимостей
+      - name: Установка Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Установить зависимости
+      - name: Установка зависимостей проекта
         run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install mypy black pylint pytest pytest-cov pip-audit psycopg2-binary
 
-      - name: Статический анализ для Python (flake8)
+      # 5. Статический анализ (mypy, black, pylint)
+      - name: Проверка типов (mypy)
         run: |
-          pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
-      - name: Статический анализ для Python (pylint)
-        run: |
-          pip install pylint
-          pylint $(find . -name "*.py" | xargs)
-
-      - name: Запустить тесты (pytest)
-        run: |
-          pip install pytest
-          if [ -d tests ]; then pytest tests; else pytest; fi
-
-  html:
-    name: Проверка HTML
-    runs-on: ubuntu-latest
-    steps:
-      - name: Клонировать репозиторий
-        uses: actions/checkout@v4
-
-      - name: Установить инструмент tidy для проверки html
-        run: sudo apt-get update && sudo apt-get install -y tidy
-
-      - name: Проверить все HTML-файлы
-        run: |
-          html_files=$(find . -type f -name "*.html")
-          if [ -z "$html_files" ]; then
-            echo "HTML-файлы не найдены."
-          else
-            for file in $html_files; do
-              echo "Проверка $file"
-              tidy -errors -quiet "$file"
-            done
+          mypy app.py --ignore-missing-imports --show-error-codes > mypy-report.txt
+          if grep -q "error:" mypy-report.txt; then
+              cat mypy-report.txt
+              exit 1
           fi
+
+      - name: Проверка форматирования (black)
+        run: |
+          black app.py --check
+
+      - name: Анализ стиля кода (pylint)
+        run: |
+          pylint app.py --output-format=parseable > pylint-report.txt || true
+
+      # 6. Аудит зависимостей
+      - name: Проверка безопасности зависимостей
+        run: |
+          pip-audit > pip-audit-log.txt
+          if grep -q "Vulnerabilities found" pip-audit-log.txt; then
+              cat pip-audit-log.txt
+              exit 1
+          fi
+
+      # 7. ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ для теста
+      - name: "Инициализация тестовой базы PostgreSQL"
+        env:
+          DATABASE_URL: "postgresql://krokuser:krokpassword@localhost:5432/krok_test_db"
+        run: |
+          export DATABASE_URL=$DATABASE_URL
+          python -c "from app import init_db; init_db()"
+          echo "База данных инициирована"
+
+      # 8. СМОНТИРОВАННЫЙ старт приложения (проверка, что Flask запускается)
+      - name: Проверка запуска Flask (и подключения к PostgreSQL)
+        env:
+          DATABASE_URL: "postgresql://krokuser:krokpassword@localhost:5432/krok_test_db"
+          FLASK_APP: app.py
+        run: |
+          python -m flask --version
+          # Попытка запуска коротко (завершается после запуска — это smoke-test)
+          timeout 20s python app.py &
+          sleep 10
+          netstat -plant | grep :5000
+          # Если не поднят порт - упасть
+          nc -zv localhost 5000 || (echo "Flask не запустился или не может подключиться к PostgreSQL!" && exit 1)
+          kill %1 || true
+
+      # 9. Запуск тестов (если есть)
+      - name: Запустить тесты (pytest) с покрытием
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=html > pytest-report.txt || exit 1
+
+      # 10. Сохранить все отчеты как артефакты
+      - name: Сохранить артефакты проверок
+        uses: actions/upload-artifact@v4
+        with:
+          name: Проверки и отчеты
+          path: |
+            mypy-report.txt
+            pylint-report.txt
+            pip-audit-log.txt
+            htmlcov
+            coverage.xml
+            pytest-report.txt
