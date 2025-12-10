@@ -87,10 +87,10 @@ jobs:
     
     - name: Check for missing imports
       run: |
-        python -c "import sys
-try:
-    from app import app, db
-    print('✓ Основные модули импортируются')
-except ImportError as e:
-    print(f'✗ Ошибка импорта: {e}')
+        python -c "import sys; \
+try: \
+    from app import app, db; \
+    print('✓ Основные модули импортируются'); \
+except ImportError as e: \
+    print(f'✗ Ошибка импорта: {e}'); \
     sys.exit(1)"
