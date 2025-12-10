@@ -51,7 +51,7 @@ jobs:
         # Предупреждения не останавливают выполнение
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     
-    - name: Run tests
+        - name: Run tests
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         SECRET_KEY: test-secret-key-for-github-actions
@@ -59,32 +59,28 @@ jobs:
         # Создаем простой тест если нет tests/ директории
         if [ ! -d "tests" ]; then
           mkdir -p tests
-          cat << 'EOF' > tests/test_basic.py
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
-def test_import_app():
-    """Проверяем что приложение импортируется без ошибок"""
-    try:
-        from app import app
-        assert app is not None
-        print("✓ Приложение импортируется успешно")
-    except Exception as e:
-        print(f"✗ Ошибка импорта: {e}")
-        raise
-
-def test_flask_config():
-    """Проверяем конфигурацию Flask"""
-    from app import app
-    assert app.config['SECRET_KEY'] is not None
-    print("✓ Конфигурация Flask корректна")
-
-if __name__ == '__main__':
-    test_import_app()
-    test_flask_config()
-    print("Все базовые тесты пройдены!")
-EOF
+          echo "import sys" > tests/test_basic.py
+          echo "import os" >> tests/test_basic.py
+          echo "sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))" >> tests/test_basic.py
+          echo "" >> tests/test_basic.py
+          echo "def test_import_app():" >> tests/test_basic.py
+          echo "    try:" >> tests/test_basic.py
+          echo "        from app import app" >> tests/test_basic.py
+          echo "        assert app is not None" >> tests/test_basic.py
+          echo "        print(\"✓ Приложение импортируется успешно\")" >> tests/test_basic.py
+          echo "    except Exception as e:" >> tests/test_basic.py
+          echo "        print(f\"✗ Ошибка импорта: {e}\")" >> tests/test_basic.py
+          echo "        raise" >> tests/test_basic.py
+          echo "" >> tests/test_basic.py
+          echo "def test_flask_config():" >> tests/test_basic.py
+          echo "    from app import app" >> tests/test_basic.py
+          echo "    assert app.config['SECRET_KEY'] is not None" >> tests/test_basic.py
+          echo "    print(\"✓ Конфигурация Flask корректна\")" >> tests/test_basic.py
+          echo "" >> tests/test_basic.py
+          echo "if __name__ == '__main__':" >> tests/test_basic.py
+          echo "    test_import_app()" >> tests/test_basic.py
+          echo "    test_flask_config()" >> tests/test_basic.py
+          echo "    print(\"Все базовые тесты пройдены!\")" >> tests/test_basic.py
         fi
         
         python -m pytest tests/ -v --tb=short
