@@ -59,7 +59,7 @@ jobs:
         # Создаем простой тест если нет tests/ директории
         if [ ! -d "tests" ]; then
           mkdir -p tests
-          cat > tests/test_basic.py << 'EOF'
+          cat << 'EOF' > tests/test_basic.py
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -91,12 +91,10 @@ EOF
     
     - name: Check for missing imports
       run: |
-        python -c "
-import sys
+        python -c "import sys
 try:
     from app import app, db
     print('✓ Основные модули импортируются')
 except ImportError as e:
     print(f'✗ Ошибка импорта: {e}')
-    sys.exit(1)
-        "
+    sys.exit(1)"
