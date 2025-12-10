@@ -85,12 +85,15 @@ jobs:
         
         python -m pytest tests/ -v --tb=short
     
-    - name: Check for missing imports
+      - name: Check for missing imports
       run: |
-        python -c "import sys; \
-try: \
-    from app import app, db; \
-    print('✓ Основные модули импортируются'); \
-except ImportError as e: \
-    print(f'✗ Ошибка импорта: {e}'); \
-    sys.exit(1)"
+        cat > check_imports.py << 'EOF'
+import sys
+try:
+    from app import app, db
+    print('✓ Основные модули импортируются')
+except ImportError as e:
+    print(f'✗ Ошибка импорта: {e}')
+    sys.exit(1)
+EOF
+        python check_imports.py
