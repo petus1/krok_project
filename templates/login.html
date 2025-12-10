@@ -4,32 +4,151 @@
 
 {% block content %}
     <div class="row justify-content-center">
-        <div class="col-md-6">
+        <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
                     <h4 class="mb-0">Вход в систему командировок</h4>
                 </div>
                 <div class="card-body">
                     <form method="POST">
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Логин:</label>
-                            <input type="text" class="form-control" id="username" name="username" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Пароль:</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">Логин:</label>
+                                    <input type="text" class="form-control" id="username" name="username" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">Пароль:</label>
+                                    <input type="password" class="form-control" id="password" name="password" required>
+                                </div>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Войти</button>
                     </form>
 
                     <div class="mt-4">
-                        <h6>Тестовые пользователи:</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Администратор:</strong> admin / admin123</li>
-                            <li><strong>Главный руководитель:</strong> gr_manager / gr123</li>
-                            <li><strong>Руководитель:</strong> manager / manager123</li>
-                            <li><strong>Сотрудник:</strong> employee / employee123</li>
-                        </ul>
+                        <h6>Тестовые пользователи (логин / пароль):</h6>
+                        <div class="accordion mt-3" id="usersAccordion">
+                            <!-- Руководство -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                        <strong>Руководство и администрация</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#usersAccordion">
+                                    <div class="accordion-body">
+                                        <ul class="list-unstyled">
+                                            <li><strong>A</strong> Администратор: <code>admin</code> / <code>admin123</code></li>
+                                            <li><strong>GR</strong> Главный руководитель: <code>gr_manager</code> / <code>gr123</code></li>
+                                            <li><strong>R</strong> Руководитель отдела продаж: <code>sales_manager</code> / <code>sales123</code></li>
+                                            <li><strong>R</strong> Руководитель отдела проектов: <code>projects_manager</code> / <code>projects123</code></li>
+                                            <li><strong>R</strong> Руководитель ИТ отдела: <code>it_manager</code> / <code>it123</code></li>
+                                            <li><strong>R</strong> Руководитель отдела разработки: <code>manager</code> / <code>manager123</code></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Сотрудники -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                        <strong>Сотрудники отделов</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#usersAccordion">
+                                    <div class="accordion-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6>Отдел продаж:</h6>
+                                                <ul class="list-unstyled">
+                                                    <li><strong>S</strong> <code>sales_emp1</code> / <code>salesemp1</code></li>
+                                                    <li><strong>S</strong> <code>sales_emp2</code> / <code>salesemp2</code></li>
+                                                    <li><strong>S</strong> <code>sales_emp3</code> / <code>salesemp3</code></li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6>Отдел проектов:</h6>
+                                                <ul class="list-unstyled">
+                                                    <li><strong>S</strong> <code>projects_emp1</code> / <code>projectsemp1</code></li>
+                                                    <li><strong>S</strong> <code>projects_emp2</code> / <code>projectsemp2</code></li>
+                                                    <li><strong>S</strong> <code>projects_emp3</code> / <code>projectsemp3</code></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <strong>S</strong> Сотрудник отдела разработки: <code>employee</code> / <code>employee123</code>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ИТ отдел -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                                        <strong>ИТ отдел</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#usersAccordion">
+                                    <div class="accordion-body">
+                                        <ul class="list-unstyled">
+                                            <li><strong>S</strong> Инженер 1: <code>it_eng1</code> / <code>iteng1</code></li>
+                                            <li><strong>S</strong> Инженер 2: <code>it_eng2</code> / <code>iteng2</code></li>
+                                            <li><strong>S</strong> Инженер 3: <code>it_eng3</code> / <code>iteng3</code></li>
+                                            <li><strong>S</strong> Программист 1: <code>it_prog1</code> / <code>itprog1</code></li>
+                                            <li><strong>S</strong> Программист 2: <code>it_prog2</code> / <code>itprog2</code></li>
+                                            <li><strong>S</strong> Программист 3: <code>it_prog3</code> / <code>itprog3</code></li>
+                                            <li><strong>S</strong> Техподдержка 1: <code>it_support1</code> / <code>itsupport1</code></li>
+                                            <li><strong>S</strong> Техподдержка 2: <code>it_support2</code> / <code>itsupport2</code></li>
+                                            <li><strong>S</strong> Техподдержка 3: <code>it_support3</code> / <code>itsupport3</code></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Службы -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour">
+                                        <strong>Службы и отделы поддержки</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#usersAccordion">
+                                    <div class="accordion-body">
+                                        <ul class="list-unstyled">
+                                            <li><strong>BU</strong> Бухгалтер: <code>accountant</code> / <code>bu123</code></li>
+                                            <li><strong>Z</strong> Менеджер по закупкам: <code>procurement_manager</code> / <code>z123</code></li>
+                                            <li><strong>TK</strong> Travel-координатор 1: <code>tk1</code> / <code>tk123</code></li>
+                                            <li><strong>TK</strong> Travel-координатор 2: <code>tk2</code> / <code>tk456</code></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <small>
+                                <strong>Расшифровка ролей:</strong>
+                                <div class="row mt-2">
+                                    <div class="col-md-6">
+                                        <strong>A</strong> - Администратор<br>
+                                        <strong>B</strong> - Безопасность<br>
+                                        <strong>BU</strong> - Бухгалтерия<br>
+                                        <strong>GR</strong> - Главный руководитель
+                                    </div>
+                                    <div class="col-md-6">
+                                        <strong>R</strong> - Руководитель<br>
+                                        <strong>S</strong> - Сотрудник<br>
+                                        <strong>TK</strong> - Travel-координатор<br>
+                                        <strong>Z</strong> - Закупки
+                                    </div>
+                                </div>
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
