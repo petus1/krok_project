@@ -167,44 +167,6 @@ python app.py
 
 ---
 
-## 👤 Тестовые учетные записи
-
-<div align="center">
-  <table>
-    <thead>
-      <tr>
-        <th>Роль</th>
-        <th>Логин</th>
-        <th>Пароль</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Администратор</strong></td>
-        <td><code>admin</code></td>
-        <td><code>admin123</code></td>
-      </tr>
-      <tr>
-        <td><strong>Главный руководитель</strong></td>
-        <td><code>gr</code></td>
-        <td><code>gr123</code></td>
-      </tr>
-      <tr>
-        <td><strong>Руководитель</strong></td>
-        <td><code>r</code></td>
-        <td><code>r123</code></td>
-      </tr>
-      <tr>
-        <td><strong>Сотрудник</strong></td>
-        <td><code>s</code></td>
-        <td><code>s123</code></td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
----
-
 <div align="center">
   <img src="https://iimg.su/s/02/gJNDixwxOdcmUk1PdQys8AOq2sXjM7sv0jAlJit0.gif" alt="Success">
   <h3>Готово! Приложение успешно установлено и запущено.</h3>
